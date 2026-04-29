@@ -3,9 +3,10 @@ name: Full Pipeline
 on:
   push:
     paths:
-      - 'src/**'
-      - 'prepare_data.py'
+      - 'encrypted_data/src/**'
+      - 'encrypted_data/prepare_data.py'
       - 'strategies/**'
+      - '.github/workflows/backtest.yml'
   schedule:
     - cron: '0 */2 * * *'
   workflow_dispatch:
@@ -57,7 +58,7 @@ jobs:
 
       - name: Prepare data if missing
         if: steps.check.outputs.DATA_READY != 'true'
-        run: python prepare_data.py
+        run: python encrypted_data/prepare_data.py
 
       - name: Encrypt source if needed
         if: steps.check.outputs.SRC_READY != 'true'
@@ -65,7 +66,7 @@ jobs:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
           mkdir -p temp_source encrypted_data
-          cp src/*.js temp_source/
+          cp encrypted_data/src/*.js temp_source/
           tar -czf src.tar.gz -C temp_source .
           node -e "
             const crypto = require('crypto');
