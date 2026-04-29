@@ -5,7 +5,7 @@ import requests
 import time
 from datetime import datetime
 
-# ========== تنظیمات (برگرفته از کد اصلی شما) ==========
+# ========== تنظیمات ==========
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
 INTERVAL = "5m"
 START_YEAR = 2018
@@ -18,14 +18,12 @@ OUTPUT_BASE = "data"
 COMBINED_DIR = os.path.join(OUTPUT_BASE, "All_Coins_Combined")
 TIMEFRAME = "5m"
 
-# ========== ۱. توابع کمکی (تاریخ، خواندن ZIP و نام‌گذاری) ==========
 def days_in_month(year, month):
     if month == 2:
         return 29 if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0) else 28
     return 30 if month in [4, 6, 9, 11] else 31
 
 def ts_to_datetime(ts):
-    """تبدیل timestamp میلی‌ثانیه به datetime"""
     try:
         if pd.isna(ts):
             return pd.NaT
@@ -47,12 +45,13 @@ def read_csv_from_zip(zip_path):
         if df.empty:
             return None
         df['timestamp'] = pd.to_numeric(df['timestamp'], errors='coerce')
+        df = df.dropna(subset=['timestamp'])
         df['_time'] = df['timestamp'].apply(ts_to_datetime)
-        df.dropna(subset=['_time'], inplace=True)
-        df.sort_values('_time', inplace=True)
+        df = df.dropna(subset=['_time'])
+        df = df.sort_values('_time').reset_index(drop=True)
         for col in ['open', 'high', 'low', 'close', 'volume']:
             df[col] = pd.to_numeric(df[col], errors='coerce')
-        df['volume'].fillna(0.0, inplace=True)
+        df['volume'] = df['volume'].fillna(0.0)
         return df[['_time', 'open', 'high', 'low', 'close', 'volume']].rename(columns={'_time': 'timestamp'})
     except Exception as e:
         print(f"❌ خطا در خواندن {zip_path}: {e}")
@@ -61,15 +60,12 @@ def read_csv_from_zip(zip_path):
 def get_filename(coin, year, month, part):
     dim = days_in_month(year, month)
     if part == 1:
-        start = datetime(year, month, 1).strftime('%Y-%m-%d')
-        end = datetime(year, month, 10).strftime('%Y-%m-%d')
+        s, e = f'{year}-{month:02d}-01', f'{year}-{month:02d}-10'
     elif part == 2:
-        start = datetime(year, month, 11).strftime('%Y-%m-%d')
-        end = datetime(year, month, 20).strftime('%Y-%m-%d')
+        s, e = f'{year}-{month:02d}-11', f'{year}-{month:02d}-20'
     else:
-        start = datetime(year, month, 21).strftime('%Y-%m-%d')
-        end = datetime(year, month, dim).strftime('%Y-%m-%d')
-    return f"{coin}-{TIMEFRAME}-{start}_{end}.csv"
+        s, e = f'{year}-{month:02d}-21', f'{year}-{month:02d}-{dim}'
+    return f"{coin}-{TIMEFRAME}-{s}_{e}.csv"
 
 def process_zip(zip_path, coin, year_filter):
     df = read_csv_from_zip(zip_path)
@@ -97,9 +93,7 @@ def process_zip(zip_path, coin, year_filter):
             cnt += 1
     return cnt
 
-# ========== ۲. تابع دانلود (کد اصلی شما) ==========
 def download_zips():
-    """دانلود فایل‌های ZIP از بایننس (همان کد ارسالی شما)"""
     os.makedirs(ZIPS_DIR, exist_ok=True)
     total = 0
     for symbol in SYMBOLS:
@@ -133,45 +127,31 @@ def download_zips():
                 time.sleep(0.5)
     print(f"\n🎯 دانلود کامل شد. تعداد کل فایل‌های ZIP دریافت شده: {total}")
 
-# ========== ۳. تابع اصلی ==========
 def main():
-    # اگر داده‌ها از قبل آماده هستند، هیچ کاری نکن
     if os.path.exists(COMBINED_DIR) and os.listdir(COMBINED_DIR):
         print("✅ داده‌ها از قبل موجودند. نیاز به پردازش نیست.")
         return
 
     os.makedirs(COMBINED_DIR, exist_ok=True)
 
-    # اگر فایل‌های ZIP وجود ندارند، دانلود کن
     if not os.path.isdir(ZIPS_DIR) or not any(f.endswith('.zip') for f in os.listdir(ZIPS_DIR)):
         print("⬇️  فایل‌های ZIP یافت نشد. در حال دانلود...")
         download_zips()
 
-    if not os.path.isdir(ZIPS_DIR):
-        print("❌ پوشه zips هنوز وجود ندارد.")
-        return
-
     all_zips = [f for f in os.listdir(ZIPS_DIR) if f.endswith('.zip')]
     if not all_zips:
-        print("❌ هیچ فایل ZIP در پوشه نیست.")
+        print("❌ هیچ فایل ZIP وجود ندارد.")
         return
 
-    # پردازش بخش قدیمی (بدون ۲۰۲۵/۲۰۲۶)
     old = [z for z in all_zips if '2025' not in z and '2026' not in z]
-    print(f"📦 پردازش {len(old)} زیپ قدیمی...")
     for z in old:
-        coin = z.split('-')[0]
-        process_zip(os.path.join(ZIPS_DIR, z), coin, lambda y: y < 2025)
+        process_zip(os.path.join(ZIPS_DIR, z), z.split('-')[0], lambda y: y < 2025)
 
-    # پردازش بخش جدید (۲۰۲۵/۲۰۲۶)
     new = [z for z in all_zips if '2025' in z or '2026' in z]
-    print(f"📦 پردازش {len(new)} زیپ جدید...")
     for z in new:
-        coin = z.split('-')[0]
-        process_zip(os.path.join(ZIPS_DIR, z), coin, lambda y: y >= 2025)
+        process_zip(os.path.join(ZIPS_DIR, z), z.split('-')[0], lambda y: y >= 2025)
 
-    total = len(os.listdir(COMBINED_DIR))
-    print(f"🎯 کل فایل‌های CSV تولید شده: {total}")
+    print(f"🎯 کل فایل‌های CSV: {len(os.listdir(COMBINED_DIR))}")
 
 if __name__ == "__main__":
     main()
