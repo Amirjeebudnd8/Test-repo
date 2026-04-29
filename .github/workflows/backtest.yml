@@ -30,9 +30,10 @@ jobs:
     outputs:
       strategies: ${{ steps.list.outputs.files }}
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
 
+      # ========== ۱. آماده‌سازی داده‌ها (دانلود + استخراج) ==========
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -41,51 +42,21 @@ jobs:
       - name: Install Python deps
         run: pip install pandas requests
 
-      - name: Check if data and src.enc exist
-        id: check
+      - name: Run prepare_data.py (download & extract)
+        run: python encrypted_data/prepare_data.py
+
+      # ========== ۲. مدیریت src.enc ==========
+      - name: Check src.enc
+        id: check_src
         run: |
-          DATA_READY=false
-          SRC_READY=false
-          if [ -d data/All_Coins_Combined ] && [ "$(ls -A data/All_Coins_Combined 2>/dev/null)" ]; then
-            DATA_READY=true
-          fi
           if [ -f encrypted_data/src.enc ]; then
-            SRC_READY=true
-          fi
-          echo "DATA_READY=$DATA_READY" >> $GITHUB_OUTPUT
-          echo "SRC_READY=$SRC_READY" >> $GITHUB_OUTPUT
-
-      # ----- قدم جدید: پیدا کردن هوشمند prepare_data.py -----
-      - name: Find prepare_data.py
-        id: find
-        run: |
-          echo "🔍 در حال جستجوی prepare_data.py..."
-          FOUND=$(find . -name "prepare_data.py" -type f 2>/dev/null | head -1)
-          if [ -n "$FOUND" ]; then
-            echo "✅ فایل در $FOUND پیدا شد"
-            echo "path=$FOUND" >> $GITHUB_OUTPUT
+            echo "ready=true" >> $GITHUB_OUTPUT
           else
-            echo "❌ فایل prepare_data.py در هیچ جای مخزن پیدا نشد!"
-            echo "path=" >> $GITHUB_OUTPUT
+            echo "ready=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Prepare data if missing
-        if: steps.check.outputs.DATA_READY != 'true' && steps.find.outputs.path != ''
-        run: |
-          echo "🚀 اجرای ${{ steps.find.outputs.path }}"
-          set -x
-          python "${{ steps.find.outputs.path }}"
-          set +x
-
-      - name: Warn if prepare_data.py not found
-        if: steps.check.outputs.DATA_READY != 'true' && steps.find.outputs.path == ''
-        run: |
-          echo "⚠️ داده‌ها آماده نیستند، اما prepare_data.py هم پیدا نشد."
-          echo "   لطفاً فایل را در مخزن قرار دهید."
-          exit 1
-
-      - name: Encrypt source if needed
-        if: steps.check.outputs.SRC_READY != 'true'
+      - name: Encrypt source files if needed
+        if: steps.check_src.outputs.ready != 'true'
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
@@ -105,6 +76,7 @@ jobs:
           "
           rm -rf temp_source src.tar.gz
 
+      # ========== ۳. رمزگشایی و آماده‌سازی بکتست ==========
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
