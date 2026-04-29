@@ -14,7 +14,6 @@ const startChunk = parseInt(getArg('--start-index') || '0');
 const endChunk   = parseInt(getArg('--end-index') || '24');
 const dataDir    = getArg('--data-dir') || path.join(__dirname, 'data');
 
-// اگر استراتژی وجود ندارد، بی‌صدا خارج شو
 if (!strategyFile || !fs.existsSync(strategyFile)) {
   console.log('ℹ️  فایل استراتژی وجود ندارد.');
   process.exit(0);
@@ -27,7 +26,7 @@ if (fs.existsSync(outputDir)) {
   process.exit(0);
 }
 
-// ==================== روند شارپ (برگرفته از script.js) ====================
+// ==================== روند شارپ ====================
 const SHARP = {
   minCandlesRequired: 5,
   consecutiveCandles: 5,
@@ -47,12 +46,10 @@ function detectSequenceFromPosition(startIdx, data, config) {
   const trend = candleColor(s);
   let endIdx = startIdx, lastSame = startIdx, oppCnt = 0;
   const max = Math.min(startIdx + config.maxLookback * 2, data.length - 1);
-
   for (let i = startIdx + 1; i <= max; i++) {
     const c = data[i];
-    if (candleColor(c) === trend) {
-      endIdx = i; lastSame = i;
-    } else {
+    if (candleColor(c) === trend) { endIdx = i; lastSame = i; }
+    else {
       if (config.enableOppositeCandleRule) {
         const prev = data[lastSame];
         if (trend === 'bullish') {
@@ -64,14 +61,11 @@ function detectSequenceFromPosition(startIdx, data, config) {
       break;
     }
   }
-
   const len = (endIdx - startIdx + 1) - oppCnt;
   if (len < config.minCandlesRequired) return null;
-
   const e = data[endIdx];
   const pct = ((e.close - s.open) / s.open) * 100;
   if (Math.abs(pct) < config.minPercentChange) return null;
-
   let hh = s.high, ll = s.low;
   for (let i = startIdx; i <= endIdx; i++) {
     if (candleColor(data[i]) === trend ||
@@ -80,7 +74,6 @@ function detectSequenceFromPosition(startIdx, data, config) {
       ll = Math.min(ll, data[i].low);
     }
   }
-
   const startTime = new Date(s.timestamp.getTime());
   const endTime  = new Date(startTime.getTime() + config.boxValidityHours * 3600000);
   return [
@@ -117,22 +110,17 @@ function detectSharpTrends(marketData) {
 
 // ==================== خواندن فایل‌ها با نام اصلی ====================
 function loadMarketDataByChunk(dataDir, start, end) {
-  // لیست فایل‌های csv در پوشه
   const allFiles = fs.readdirSync(dataDir).filter(f => f.endsWith('.csv'));
-  // استخراج تاریخ از نام (فرض: BTCUSDT-5m-YYYY-MM.csv)
   const dated = allFiles.map(f => {
     const m = f.match(/(\d{4}-\d{2})\.csv$/);
     return { file: f, date: m ? m[1] : null };
   }).filter(x => x.date !== null);
-
   dated.sort((a, b) => a.date.localeCompare(b.date));
-  const selected = dated.slice(start, end + 1); // end inclusive
-
+  const selected = dated.slice(start, end + 1);
   if (selected.length === 0) {
     console.log('هیچ فایلی در این چانک پیدا نشد.');
     return [];
   }
-
   const allData = [];
   for (const entry of selected) {
     const filePath = path.join(dataDir, entry.file);
@@ -149,8 +137,6 @@ function loadMarketDataByChunk(dataDir, start, end) {
     }
     console.log(`  ✔ ${entry.file} (${parsed.data.length} کندل)`);
   }
-
-  // مرتب‌سازی کلی و حذف تکراری
   allData.sort((a, b) => a.timestamp - b.timestamp);
   const unique = [];
   const seen = new Set();
@@ -179,11 +165,9 @@ if (fs.existsSync(divPath)) divergenceDetector = require(divPath);
 (async () => {
   const strategyCode = fs.readFileSync(strategyFile, 'utf8');
 
-  // 1. خطوط روند
   const trendRes = await backtestCore.detectTrendLinesAdvanced(marketData, { pivotPeriod: 5, precision: 0.001, minTouchPoints: 3 });
   const trendLines = trendRes.trendLines;
 
-  // 2. واگرایی
   let divergenceSignals = [];
   if (divergenceDetector) {
     const rsi = divergenceDetector.runDivergenceDetection({ marketData, indicator: 'RSI', sendMessage: ()=>{} });
@@ -192,12 +176,10 @@ if (fs.existsSync(divPath)) divergenceDetector = require(divPath);
     console.log(`${divergenceSignals.length} سیگنال واگرایی`);
   }
 
-  // 3. روند شارپ
   const sharpTrends = detectSharpTrends(marketData);
   console.log(`${sharpTrends.length} روند شارپ`);
 
-  // 4. بکتست
-  const backtestOptions = {
+  const result = await backtestCore.runBacktest(marketData, {
     code: strategyCode,
     initialCapital: 10000,
     riskPerTrade: 2,
@@ -208,13 +190,8 @@ if (fs.existsSync(divPath)) divergenceDetector = require(divPath);
     breakPoints: {},
     divergenceSignals,
     sharpTrends
-  };
+  });
 
-  console.log('⚙️  اجرای بکتست...');
-  const result = await backtestCore.runBacktest(marketData, backtestOptions);
-  console.log(`${result.trades.length} معامله`);
-
-  // 5. ذخیره‌سازی (مطابق script.js)
   fs.mkdirSync(outputDir, { recursive: true });
 
   const trades = result.trades;
@@ -256,6 +233,10 @@ if (fs.existsSync(divPath)) divergenceDetector = require(divPath);
     trades: trades.map(t => ({ type: t.type, entryTime: t.entryTime, exitTime: t.exitTime, profitPercent: t.profitPercent }))
   };
   fs.writeFileSync(path.join(outputDir, 'trades_summary.json'), JSON.stringify(summary, null, 2));
+
+  // ✅ فایل جدید: 1.json حاوی کد استراتژی
+  fs.writeFileSync(path.join(outputDir, '1.json'), strategyCode, 'utf8');
+  console.log('📝 1.json (کد استراتژی) ذخیره شد.');
 
   console.log(`✅ نتایج در ${outputDir} ذخیره شد.`);
 })().catch(err => { console.error(err); process.exit(1); });
