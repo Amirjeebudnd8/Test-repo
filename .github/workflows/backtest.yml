@@ -1,134 +1,154 @@
-name: Full Pipeline
+name: Smart Pipeline
 
 on:
   push:
-    paths:
-      - 'encrypted_data/**'
-      - 'strategies/**'
-      - '.github/workflows/backtest.yml'
-  schedule:
-    - cron: '0 */2 * * *'
+    paths: ['encrypted_data/**', 'strategies/**', '.github/workflows/backtest.yml']
   workflow_dispatch:
-    inputs:
-      strategy_file:
-        description: 'نام فایل استراتژی'
-        required: false
-        default: ''
-      start_chunk:
-        description: 'شروع چانک'
-        required: false
-        default: '0'
-      end_chunk:
-        description: 'پایان چانک'
-        required: false
-        default: '24'
 
 jobs:
   prepare:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     outputs:
-      strategies: ${{ steps.list.outputs.files }}
+      strategies: ${{ steps.list_strategies.outputs.files }}
+      chunks: ${{ steps.build_chunks.outputs.chunks }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      # کش پوشه zips برای جلوگیری از دانلود مجدد
-      - name: Cache ZIP files
+      - uses: actions/checkout@v5
+      - name: Cache ZIPs
         uses: actions/cache@v4
         with:
           path: zips
-          key: zips-${{ hashFiles('download_zips.py') }}-${{ github.run_id }}
-          restore-keys: |
-            zips-${{ hashFiles('download_zips.py') }}-
+          key: zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-${{ github.run_id }}
+          restore-keys: zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.10'
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.10' }
+      - run: pip install pandas requests
 
-      - name: Install Python deps
-        run: pip install pandas requests
-
-      - name: Run prepare_data.py
-        run: python encrypted_data/prepare_data.py
-
-      - name: Check src.enc
-        id: check_src
+      - name: Prepare data if data.enc missing
+        id: prep_data
         run: |
-          if [ -f encrypted_data/src.enc ]; then
-            echo "ready=true" >> $GITHUB_OUTPUT
+          if [ -f encrypted_data/data.enc ]; then
+            echo "data_exists=true" >> $GITHUB_OUTPUT
           else
-            echo "ready=false" >> $GITHUB_OUTPUT
+            echo "data_exists=false" >> $GITHUB_OUTPUT
+            python encrypted_data/prepare_data.py
           fi
 
-      - name: Encrypt source files if needed
-        if: steps.check_src.outputs.ready != 'true'
+      - name: Build data.enc if not exists
+        if: steps.prep_data.outputs.data_exists != 'true'
+        env:
+          DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
+        run: |
+          cd data
+          tar -czf ../data.tar.gz All_Coins_Combined
+          cd ..
+          node -e "
+            const crypto=require('crypto'),fs=require('fs');
+            const pass=process.env.DATA_PASSWORD;
+            const key=crypto.scryptSync(pass,'salt',32);
+            const iv=crypto.randomBytes(16);
+            const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
+            const input=fs.readFileSync('data.tar.gz');
+            const enc=Buffer.concat([cipher.update(input),cipher.final()]);
+            fs.writeFileSync('encrypted_data/data.enc',Buffer.concat([iv,enc]));
+          "
+          rm data.tar.gz
+
+      - name: Decrypt data.enc
+        env:
+          DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
+        run: |
+          node -e "
+            const crypto=require('crypto'),fs=require('fs');
+            const pass=process.env.DATA_PASSWORD;
+            const data=fs.readFileSync('encrypted_data/data.enc');
+            const key=crypto.scryptSync(pass,'salt',32);
+            const iv=data.slice(0,16);
+            const enc=data.slice(16);
+            const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+            const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
+            fs.writeFileSync('data.tar.gz',dec);
+          "
+          mkdir -p data
+          tar -xzf data.tar.gz -C data
+          rm data.tar.gz
+
+      - name: Encrypt source if src.enc missing
+        id: enc_src
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
-          mkdir -p temp_source encrypted_data
-          cp encrypted_data/src/*.js temp_source/
-          tar -czf src.tar.gz -C temp_source .
-          node -e "
-            const crypto = require('crypto');
-            const fs = require('fs');
-            const pass = process.env.CODE_PASSWORD;
-            const key = crypto.scryptSync(pass, 'salt', 32);
-            const iv = crypto.randomBytes(16);
-            const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-            const input = fs.readFileSync('src.tar.gz');
-            const enc = Buffer.concat([cipher.update(input), cipher.final()]);
-            fs.writeFileSync('encrypted_data/src.enc', Buffer.concat([iv, enc]));
-          "
-          rm -rf temp_source src.tar.gz
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install Node deps
-        run: npm install papaparse
+          if [ -f encrypted_data/src.enc ]; then
+            echo "src_exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "src_exists=false" >> $GITHUB_OUTPUT
+            tar -czf src.tar.gz -C encrypted_data/src .
+            node -e "
+              const crypto=require('crypto'),fs=require('fs');
+              const pass=process.env.CODE_PASSWORD;
+              const key=crypto.scryptSync(pass,'salt',32);
+              const iv=crypto.randomBytes(16);
+              const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
+              const input=fs.readFileSync('src.tar.gz');
+              const enc=Buffer.concat([cipher.update(input),cipher.final()]);
+              fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
+            "
+            rm -rf encrypted_data/src src.tar.gz
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add -A
+            git commit -m "encrypt source files" || true
+            git push
+          fi
 
       - name: Decrypt src.enc
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
           node -e "
-            const crypto = require('crypto');
-            const fs = require('fs');
-            const pass = process.env.CODE_PASSWORD;
-            const data = fs.readFileSync('encrypted_data/src.enc');
-            const key = crypto.scryptSync(pass, 'salt', 32);
-            const iv = data.slice(0, 16);
-            const enc = data.slice(16);
-            const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-            const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
-            fs.writeFileSync('src.tar.gz', dec);
+            const crypto=require('crypto'),fs=require('fs');
+            const pass=process.env.CODE_PASSWORD;
+            const data=fs.readFileSync('encrypted_data/src.enc');
+            const key=crypto.scryptSync(pass,'salt',32);
+            const iv=data.slice(0,16);
+            const enc=data.slice(16);
+            const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+            const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
+            fs.writeFileSync('src.tar.gz',dec);
           "
           tar -xzf src.tar.gz
           rm src.tar.gz
 
+      - uses: actions/setup-node@v4
+        with: { node-version: '18' }
+      - run: npm install papaparse
+
       - name: List strategies
-        id: list
+        id: list_strategies
         run: |
-          # اگر فایلی هست لیست کن، وگرنه خالی بگذار
-          shopt -s nullglob
-          files=(strategies/*.js)
-          shopt -u nullglob
-          if [ ${#files[@]} -gt 0 ]; then
-            jq -R -s -c 'split("\n")[:-1]' <(printf '%s\n' "${files[@]##*/}") > /tmp/strategies.json
-          else
-            echo '[]' > /tmp/strategies.json
-          fi
-          cat /tmp/strategies.json
-          echo "files=$(cat /tmp/strategies.json)" >> $GITHUB_OUTPUT
+          files=$(ls strategies/*.js 2>/dev/null | sed 's|strategies/||' | jq -R -s -c 'split("\n")[:-1]')
+          echo "files=$files" >> $GITHUB_OUTPUT
+
+      - name: Build dynamic chunks
+        id: build_chunks
+        run: |
+          cnt=$(ls data/All_Coins_Combined/*.csv 2>/dev/null | wc -l)
+          size=25
+          n=$(( (cnt + size - 1) / size ))
+          chunks="["
+          for ((i=0; i<n; i++)); do
+            s=$((i*size))
+            [ $i -gt 0 ] && chunks+=", "
+            chunks+="$s"
+          done
+          chunks+="]"
+          echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
       - name: Upload prepared
         uses: actions/upload-artifact@v4
         with:
-          name: prepared
+          name: prep
           path: |
             data/
             backtest-core.js
@@ -137,7 +157,6 @@ jobs:
             strategies/
             node_modules/
             package.json
-          retention-days: 1
 
   backtest:
     needs: prepare
@@ -145,53 +164,39 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
+      max-parallel: 10
       matrix:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
-        chunk: [0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500, 525, 550, 575, 600, 625, 650, 675]
+        chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download prepared
-        uses: actions/download-artifact@v4
+      - uses: actions/checkout@v5
         with:
-          name: prepared
+          token: ${{ secrets.GH_PAT }}
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/download-artifact@v4
         with:
-          node-version: '18'
+          name: prep
 
-      - name: Run backtest
+      - uses: actions/setup-node@v4
+        with: { node-version: '18' }
+
+      - name: Run backtest for chunk
         run: |
+          END=$(( ${{ matrix.chunk }} + 24 ))
           node run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
-            --end-index $(( ${{ matrix.chunk }} + 24 ))
-
-      - name: Encrypt results
-        if: always()
+            --end-index $END
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
-        run: |
-          if [ -d results ]; then
-            tar -czf results.tar.gz results/
-            node -e "
-              const crypto = require('crypto');
-              const fs = require('fs');
-              const pass = process.env.RESULTS_PASSWORD;
-              const key = crypto.scryptSync(pass, 'salt', 32);
-              const iv = crypto.randomBytes(16);
-              const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-              const input = fs.readFileSync('results.tar.gz');
-              const enc = Buffer.concat([cipher.update(input), cipher.final()]);
-              fs.writeFileSync('results.enc', Buffer.concat([iv, enc]));
-            "
-            rm -rf results/ results.tar.gz
-          fi
 
-      - name: Upload results
-        uses: actions/upload-artifact@v4
-        with:
-          name: result-${{ matrix.strategy_file }}-chunk-${{ matrix.chunk }}
-          path: results.enc
+      - name: Commit and push results
+        run: |
+          if [ -f results/*/chunk_*/results.enc ]; then
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add results/
+            git commit -m "backtest chunk ${{ matrix.chunk }} for ${{ matrix.strategy_file }}" || true
+            git pull --rebase
+            git push
+          fi
