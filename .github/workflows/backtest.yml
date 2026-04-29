@@ -1,0 +1,179 @@
+name: Full Pipeline
+
+on:
+  schedule:
+    - cron: '0 */2 * * *'
+  workflow_dispatch:
+    inputs:
+      strategy_file:
+        description: 'نام فایل استراتژی'
+        required: false
+        default: ''
+      start_chunk:
+        description: 'شروع چانک'
+        required: false
+        default: '0'
+      end_chunk:
+        description: 'پایان چانک'
+        required: false
+        default: '24'
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      strategies: ${{ steps.list.outputs.files }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install Python deps
+        run: pip install pandas requests
+
+      - name: Check if data and src.enc exist
+        id: check
+        run: |
+          DATA_READY=false
+          SRC_READY=false
+          if [ -d data/All_Coins_Combined ] && [ "$(ls -A data/All_Coins_Combined 2>/dev/null)" ]; then
+            DATA_READY=true
+          fi
+          if [ -f encrypted_data/src.enc ]; then
+            SRC_READY=true
+          fi
+          echo "DATA_READY=$DATA_READY" >> $GITHUB_OUTPUT
+          echo "SRC_READY=$SRC_READY" >> $GITHUB_OUTPUT
+
+      - name: Prepare data if missing
+        if: steps.check.outputs.DATA_READY != 'true'
+        run: python src/prepare_data.py
+
+      - name: Encrypt source if needed
+        if: steps.check.outputs.SRC_READY != 'true'
+        env:
+          CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
+        run: |
+          mkdir -p temp_source encrypted_data
+          cp src/*.js temp_source/
+          tar -czf src.tar.gz -C temp_source .
+          node -e "
+            const crypto = require('crypto');
+            const fs = require('fs');
+            const pass = process.env.CODE_PASSWORD;
+            const key = crypto.scryptSync(pass, 'salt', 32);
+            const iv = crypto.randomBytes(16);
+            const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+            const input = fs.readFileSync('src.tar.gz');
+            const enc = Buffer.concat([cipher.update(input), cipher.final()]);
+            fs.writeFileSync('encrypted_data/src.enc', Buffer.concat([iv, enc]));
+          "
+          rm -rf temp_source src.tar.gz
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Install Node deps
+        run: npm install papaparse
+
+      - name: Decrypt src.enc
+        env:
+          CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
+        run: |
+          node -e "
+            const crypto = require('crypto');
+            const fs = require('fs');
+            const pass = process.env.CODE_PASSWORD;
+            const data = fs.readFileSync('encrypted_data/src.enc');
+            const key = crypto.scryptSync(pass, 'salt', 32);
+            const iv = data.slice(0, 16);
+            const enc = data.slice(16);
+            const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+            const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
+            fs.writeFileSync('src.tar.gz', dec);
+          "
+          tar -xzf src.tar.gz
+          rm src.tar.gz
+
+      - name: List strategies
+        id: list
+        run: |
+          files=$(ls strategies/*.js 2>/dev/null | sed 's|strategies/||' | jq -R -s -c 'split("\n")[:-1]')
+          echo "files=$files" >> $GITHUB_OUTPUT
+
+      - name: Upload prepared
+        uses: actions/upload-artifact@v4
+        with:
+          name: prepared
+          path: |
+            data/
+            backtest-core.js
+            divergence-detector.js
+            run-backtest.js
+            strategies/
+            node_modules/
+            package.json
+          retention-days: 1
+
+  backtest:
+    needs: prepare
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      matrix:
+        strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
+        chunk: [0, 25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500, 525, 550, 575, 600, 625, 650, 675]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download prepared
+        uses: actions/download-artifact@v4
+        with:
+          name: prepared
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: Run backtest
+        run: |
+          node run-backtest.js \
+            --strategy-file "strategies/${{ matrix.strategy_file }}" \
+            --start-index ${{ matrix.chunk }} \
+            --end-index $(( ${{ matrix.chunk }} + 24 ))
+
+      - name: Encrypt results
+        if: always()
+        env:
+          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
+        run: |
+          if [ -d results ]; then
+            tar -czf results.tar.gz results/
+            node -e "
+              const crypto = require('crypto');
+              const fs = require('fs');
+              const pass = process.env.RESULTS_PASSWORD;
+              const key = crypto.scryptSync(pass, 'salt', 32);
+              const iv = crypto.randomBytes(16);
+              const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+              const input = fs.readFileSync('results.tar.gz');
+              const enc = Buffer.concat([cipher.update(input), cipher.final()]);
+              fs.writeFileSync('results.enc', Buffer.concat([iv, enc]));
+            "
+            rm -rf results/ results.tar.gz
+          fi
+
+      - name: Upload results
+        uses: actions/upload-artifact@v4
+        with:
+          name: result-${{ matrix.strategy_file }}-chunk-${{ matrix.chunk }}
+          path: results.enc
