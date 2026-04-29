@@ -33,7 +33,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # ========== ۱. آماده‌سازی داده‌ها (دانلود + استخراج) ==========
+      # کش پوشه zips برای جلوگیری از دانلود مجدد
+      - name: Cache ZIP files
+        uses: actions/cache@v4
+        with:
+          path: zips
+          key: zips-${{ hashFiles('download_zips.py') }}-${{ github.run_id }}
+          restore-keys: |
+            zips-${{ hashFiles('download_zips.py') }}-
+
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
@@ -42,10 +50,9 @@ jobs:
       - name: Install Python deps
         run: pip install pandas requests
 
-      - name: Run prepare_data.py (download & extract)
+      - name: Run prepare_data.py
         run: python encrypted_data/prepare_data.py
 
-      # ========== ۲. مدیریت src.enc ==========
       - name: Check src.enc
         id: check_src
         run: |
@@ -76,7 +83,6 @@ jobs:
           "
           rm -rf temp_source src.tar.gz
 
-      # ========== ۳. رمزگشایی و آماده‌سازی بکتست ==========
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
@@ -107,8 +113,17 @@ jobs:
       - name: List strategies
         id: list
         run: |
-          files=$(ls strategies/*.js 2>/dev/null | sed 's|strategies/||' | jq -R -s -c 'split("\n")[:-1]')
-          echo "files=$files" >> $GITHUB_OUTPUT
+          # اگر فایلی هست لیست کن، وگرنه خالی بگذار
+          shopt -s nullglob
+          files=(strategies/*.js)
+          shopt -u nullglob
+          if [ ${#files[@]} -gt 0 ]; then
+            jq -R -s -c 'split("\n")[:-1]' <(printf '%s\n' "${files[@]##*/}") > /tmp/strategies.json
+          else
+            echo '[]' > /tmp/strategies.json
+          fi
+          cat /tmp/strategies.json
+          echo "files=$(cat /tmp/strategies.json)" >> $GITHUB_OUTPUT
 
       - name: Upload prepared
         uses: actions/upload-artifact@v4
@@ -126,6 +141,7 @@ jobs:
 
   backtest:
     needs: prepare
+    if: needs.prepare.outputs.strategies != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
