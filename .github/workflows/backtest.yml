@@ -1,6 +1,5 @@
 name: Complete 24/7 Pipeline
 
-
 permissions:
   contents: write
 
@@ -15,9 +14,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ------------------------------------------------------------
-  #  Job: Idempotency – only run if results are incomplete
-  # ------------------------------------------------------------
   check-completion:
     runs-on: ubuntu-latest
     outputs:
@@ -42,9 +38,6 @@ jobs:
           fi
           echo "all_completed=$ALL_COMPLETED" >> $GITHUB_OUTPUT
 
-  # ------------------------------------------------------------
-  #  Job 1: prepare data & source encryption
-  # ------------------------------------------------------------
   prepare:
     needs: check-completion
     if: needs.check-completion.outputs.all_completed != 'true'
@@ -76,11 +69,14 @@ jobs:
         run: pip install pandas requests
 
       # ------------------------------------------------------------
-      #  🔓 NEW: Unlock source files if unlock.txt exists
+      #  🔓 مکانیزم باز کردن قفل فایل‌های سورس
       # ------------------------------------------------------------
       - name: 🔓 Check for unlock request
         id: unlock
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          
           UNLOCK_FILE="encrypted_data/src/unlock.txt"
           if [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
             echo "🔓 درخواست بازگشایی قفل شناسایی شد. فایل‌های سورس بازیابی می‌شوند."
@@ -100,6 +96,7 @@ jobs:
               rm src.tar.gz
               echo "✅ فایل‌های سورس از src.enc استخراج شدند."
             fi
+            git pull --rebase
             rm -f "$UNLOCK_FILE"
             git add "$UNLOCK_FILE"
             git commit -m "remove unlock flag after restoring source files" || true
@@ -111,7 +108,7 @@ jobs:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
 
       # ------------------------------------------------------------
-      #  Data preparation (always run)
+      #  Data preparation
       # ------------------------------------------------------------
       - name: 5. Decrypt data.enc if exists
         id: data_decrypt
@@ -161,7 +158,7 @@ jobs:
           rm data.tar.gz
 
       # ------------------------------------------------------------
-      #  🔒 Source encryption / wipe based on content changes
+      #  🔒 رمزنگاری و خالی‌سازی فایل‌های سورس
       # ------------------------------------------------------------
       - name: 8. Check if source files need re-encryption
         id: source_check
@@ -169,7 +166,6 @@ jobs:
           SRC_DIR="encrypted_data/src"
           NEED_ENC=false
           if [ -d "$SRC_DIR" ]; then
-            # اگر محتوای فایلی غیر صفر باشد یعنی کاربر آن را ویرایش کرده
             for f in "$SRC_DIR"/*.js "$SRC_DIR"/*.py; do
               if [ -f "$f" ] && [ -s "$f" ]; then
                 NEED_ENC=true
@@ -201,16 +197,20 @@ jobs:
       - name: 10. Wipe source files content (keep files)
         if: steps.source_check.outputs.need_enc == 'true'
         run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          
           SRC_DIR="encrypted_data/src"
           for f in "$SRC_DIR"/*.js "$SRC_DIR"/*.py; do
             [ -f "$f" ] && echo -n "" > "$f"
           done
+          git pull --rebase
           git add "$SRC_DIR/"
           git commit -m "wipe source file contents after re-encryption" || true
           git push
 
       # ------------------------------------------------------------
-      #  Decrypt src.enc for backtest job
+      #  Decrypt for backtest job
       # ------------------------------------------------------------
       - name: 11. Decrypt src.enc for backtest
         env:
@@ -272,9 +272,6 @@ jobs:
             node_modules/
             package.json
 
-  # ------------------------------------------------------------
-  #  Job 2: Backtest (unchanged, already fixed)
-  # ------------------------------------------------------------
   backtest:
     needs: [check-completion, prepare]
     if: needs.prepare.outputs.strategies != '[]' && needs.check-completion.outputs.all_completed != 'true'
