@@ -320,7 +320,7 @@ jobs:
         id: build_chunks
         run: |
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-          size=25; n=$(( (cnt + size - 1) / size ))
+          size=1; n=$(( (cnt + size - 1) / size ))
           chunks="["
           for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done
           chunks+="]"
