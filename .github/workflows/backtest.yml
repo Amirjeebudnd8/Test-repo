@@ -69,7 +69,24 @@ jobs:
         run: pip install pandas requests
 
       # ------------------------------------------------------------
-      #  🔓 مکانیزم Unlock - تضمین می‌کند فایل‌ها در مخزن بمانند
+      #  🆕 گام جدید: ساخت خودکار پوشه src و فایل unlock.txt
+      # ------------------------------------------------------------
+      - name: 0. Auto-create src folder and unlock.txt
+        id: auto_unlock
+        run: |
+          # ایجاد پوشه اگر وجود ندارد
+          mkdir -p encrypted_data/src
+          # ساخت فایل unlock.txt با مقدار 1
+          UNLOCK_FILE="encrypted_data/src/unlock.txt"
+          if [ ! -f "$UNLOCK_FILE" ]; then
+            echo "1" > "$UNLOCK_FILE"
+            echo "🆕 فایل unlock.txt با مقدار 1 ساخته شد."
+          else
+            echo "✅ فایل unlock.txt از قبل وجود دارد."
+          fi
+
+      # ------------------------------------------------------------
+      #  🔓 مکانیزم Unlock
       # ------------------------------------------------------------
       - name: 🔓 Check for unlock request
         id: unlock
@@ -82,7 +99,6 @@ jobs:
             echo "🔓 باز کردن قفل..."
             echo "unlocked=true" >> $GITHUB_OUTPUT
 
-            # بازیابی فایل‌های سورس
             if [ -f encrypted_data/src.enc ]; then
               mkdir -p temp_src_restore
               node -e "
@@ -102,7 +118,6 @@ jobs:
               rm -rf temp_src_restore src.tar.gz
               echo "✅ فایل‌های سورس استخراج شدند."
 
-              # 🏁 پرچم آنلاک برای جلوگیری از پاک شدن ناخواسته
               touch encrypted_data/src/.unlocked.flag
               echo "🏁 پرچم .unlocked.flag ساخته شد."
             fi
@@ -111,8 +126,10 @@ jobs:
             git config user.email "actions@github.com"
             git pull --rebase
 
-            # ⚡ مهم: اضافه کردن و کامیت کردن خود فایل‌های بازیابی‌شده
-            git add encrypted_data/src/*.js encrypted_data/src/*.py encrypted_data/src/.unlocked.flag
+            # فقط فایل‌هایی که واقعاً وجود دارند اضافه شوند
+            git add encrypted_data/src/*.js || true
+            git add encrypted_data/src/*.py || true
+            git add encrypted_data/src/.unlocked.flag
 
             rm -f "$UNLOCK_FILE"
             git add "$UNLOCK_FILE"
