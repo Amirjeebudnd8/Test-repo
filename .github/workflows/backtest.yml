@@ -62,7 +62,7 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  🔓 مکانیزم Unlock
+      #  UNLOCK
       # ------------------------------------------------------------
       - name: 🔓 Unlock Handler
         id: unlock
@@ -74,11 +74,11 @@ jobs:
           UNLOCK_FILE="encrypted_data/src/unlock.txt"
           FLAG_FILE="encrypted_data/src/.unlocked.flag"
 
-          # [۳] unlock = 3 : استخراج همه نتایج
+          # [۳] unlock = 3
           if [ -f "$UNLOCK_FILE" ] && grep -q "^3$" "$UNLOCK_FILE"; then
-            echo "📊 استخراج نتایج (unlock=3)"
+            echo "📊 unlock=3"
 
-            # ساخت فایل Node.js برای رمزگشایی
+            # ساخت فایل رمزگشایی نتایج
             cat << 'NODEEOF' > /tmp/dec_results.js
           const crypto = require('crypto'), fs = require('fs');
           const pass = process.env.RESULTS_PASSWORD;
@@ -94,7 +94,6 @@ jobs:
         NODEEOF
 
             find results -name "results.enc" -type f | while read ENC; do
-              echo "  ⚙️  استخراج: $ENC"
               DIR=$(dirname "$ENC")
               ENC_FILE="$ENC" OUT_DIR="$DIR" node /tmp/dec_results.js
               tar -xzf "$DIR/results.tar.gz" -C "$DIR"
@@ -107,17 +106,17 @@ jobs:
             git commit -m "extract all results (unlock 3)" || true
             git pull --rebase && git push
 
-            rm -f "$UNLOCK_FILE"
-            rm -f "$FLAG_FILE"
+            rm -f "$UNLOCK_FILE" "$FLAG_FILE"
 
-          # [۱] unlock = 1 : استخراج سورس
+          # [۱] unlock = 1
           elif [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
-            echo "🔓 استخراج سورس (unlock=1)"
+            echo "🔓 unlock=1"
             echo "unlocked=true" >> $GITHUB_OUTPUT
 
             if [ -f encrypted_data/src.enc ]; then
               mkdir -p temp_src_restore
 
+              # ساخت فایل رمزگشایی سورس
               cat << 'NODEEOF' > /tmp/dec_src.js
             const crypto = require('crypto'), fs = require('fs');
             const pass = process.env.CODE_PASSWORD;
@@ -143,27 +142,24 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add encrypted_data/src/*.js encrypted_data/src/.unlocked.flag 2>/dev/null || true
-            git rm --cached "$UNLOCK_FILE" 2>/dev/null || rm -f "$UNLOCK_FILE"
+            rm -f "$UNLOCK_FILE"
             git commit -m "unlock source files" || true
             git pull --rebase && git push
 
           else
-            # حالت عادی – پاکسازی JSONهای قدیمی نتایج
-            echo "🧹 پاکسازی JSONهای استخراج‌شده قبلی"
+            echo "🧹 پاکسازی JSONهای نتایج"
             find results -type f ! -name "results.enc" \( -name "*.json" -o -name "*.tar.gz" \) -delete
             if find results -type f ! -name "results.enc" | grep -q .; then
               git config user.name "github-actions[bot]"
               git config user.email "actions@github.com"
               git add results/
-              git commit -m "cleanup extracted json files" || true
+              git commit -m "cleanup results" || true
               git pull --rebase && git push
             fi
             echo "🔒 حالت عادی (no unlock)"
           fi
 
-      # ------------------------------------------------------------
-      #  🆕 دانلود و بخش‌بندی داده‌های ۲۰۲۵/۲۰۲۶ (همیشه)
-      # ------------------------------------------------------------
+      # ---------- ۵. ۲۰۲۵/۲۰۲۶ ----------
       - name: 5. Prepare 2025/2026 data if needed
         id: prep_2025
         run: |
@@ -188,9 +184,7 @@ jobs:
           git commit -m "mark 2025/2026 prepared" || true
           git push
 
-      # ------------------------------------------------------------
-      #  داده‌های اصلی
-      # ------------------------------------------------------------
+      # ---------- داده‌های اصلی ----------
       - name: 7. Decrypt data.enc if exists
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
@@ -230,23 +224,17 @@ jobs:
           node /tmp/enc_data.js
           rm data.tar.gz
 
-      # ------------------------------------------------------------
-      #  🔒 رمزنگاری هوشمند – جلوگیری از پاک شدن فایل‌های سالم
-      # ------------------------------------------------------------
+      # ---------- ۱۰-۱۲ رمزنگاری هوشمند ----------
       - name: 10. Analyze source files
         id: source_analysis
         run: |
-          ALL_FULL=true
-          ONE_FULL=false
-          FULL_COUNT=0
+          ALL_FULL=true; ONE_FULL=false
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
-            [ -f "$f" ] && [ -s "$f" ] && { FULL_COUNT=$((FULL_COUNT+1)); ONE_FULL=true; }
+            [ -f "$f" ] && [ -s "$f" ] && ONE_FULL=true
             [ -f "$f" ] && [ ! -s "$f" ] && ALL_FULL=false
           done
           echo "all_full=$ALL_FULL" >> $GITHUB_OUTPUT
           echo "one_full=$ONE_FULL" >> $GITHUB_OUTPUT
-          echo "full_count=$FULL_COUNT" >> $GITHUB_OUTPUT
-          echo "Files with content: $FULL_COUNT, all_full=$ALL_FULL"
 
       - name: 11. Encrypt source files (smart merge)
         if: steps.source_analysis.outputs.one_full == 'true' && steps.unlock.outputs.unlocked != 'true'
@@ -270,8 +258,7 @@ jobs:
             fs.writeFileSync('src_old.tar.gz', dec);
           NODEEOF
               node /tmp/dec_src_old.js
-              tar -xzf src_old.tar.gz -C temp_merge
-              rm src_old.tar.gz
+              tar -xzf src_old.tar.gz -C temp_merge; rm src_old.tar.gz
             fi
             for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
               [ -f "$f" ] && [ -s "$f" ] && cp "$f" temp_merge/
@@ -311,9 +298,7 @@ jobs:
           git stash pop 2>/dev/null || true
           git push
 
-      # ------------------------------------------------------------
-      #  آماده‌سازی برای بکتست
-      # ------------------------------------------------------------
+      # ---------- ۱۳-۱۵ Decrypt, Node, Deps ----------
       - name: 13. Decrypt src.enc for backtest
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
@@ -350,16 +335,9 @@ jobs:
         id: build_chunks
         run: |
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-          cnt=2                     # ← موقتاً فقط ۲ فایل اول
-          size=1
-          n=$(( (cnt + size - 1) / size ))
-          chunks="["
-          for ((i=0; i<n; i++)); do
-            s=$((i*size))
-            [ $i -gt 0 ] && chunks+=", "
-            chunks+="$s"
-          done
-          chunks+="]"
+          cnt=2
+          size=1; n=$(( (cnt + size - 1) / size ))
+          chunks="["; for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done; chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
       - name: 18. Upload prepared environment
@@ -377,7 +355,7 @@ jobs:
 
   backtest:
     needs: [check-completion, prepare]
-    if: needs.prepare.outputs.strategies != '[]' && needs.check-completion.outputs.all_completed != 'true'
+    if: needs.prepare.outputs.strategies != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
@@ -439,7 +417,7 @@ jobs:
           [ -f "strategies/${{ matrix.strategy_file }}" ] || { echo "   ❌ MISSING"; exit 1; }
           echo "✅ All health checks passed."
 
-      - name: 5. Run backtest for chunk
+      - name: 5. Run backtest for single file
         continue-on-error: true
         run: |
           END=$(( ${{ matrix.chunk }} ))
