@@ -104,7 +104,7 @@ jobs:
             git push
           fi
 
-      # 🆕 ۲۰۲۵/۲۰۲۶
+      # 🆕 داده‌های ۲۰۲۵/۲۰۲۶
       - name: 5. Prepare 2025/2026 data if needed
         id: prep_2025
         run: |
