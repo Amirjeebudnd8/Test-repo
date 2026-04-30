@@ -1,8 +1,16 @@
-name: Smart Pipeline
+name: Complete 24/7 Pipeline
+
+permissions:
+  contents: write
 
 on:
+  schedule:
+    - cron: '0 */2 * * *'
   push:
-    paths: ['encrypted_data/**', 'strategies/**', '.github/workflows/backtest.yml']
+    paths:
+      - 'encrypted_data/**'
+      - 'strategies/**'
+      - '.github/workflows/backtest.yml'
   workflow_dispatch:
 
 jobs:
@@ -13,19 +21,28 @@ jobs:
       strategies: ${{ steps.list_strategies.outputs.files }}
       chunks: ${{ steps.build_chunks.outputs.chunks }}
     steps:
-      - uses: actions/checkout@v5
-      - name: Cache ZIPs
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Cache ZIP files
         uses: actions/cache@v4
         with:
           path: zips
           key: zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-${{ github.run_id }}
-          restore-keys: zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-
+          restore-keys: |
+            zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-
 
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.10' }
-      - run: pip install pandas requests
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-      - name: Prepare data if data.enc missing
+      - name: Install Python dependencies
+        run: pip install pandas requests
+
+      - name: Prepare market data (download & extract)
         id: prep_data
         run: |
           if [ -f encrypted_data/data.enc ]; then
@@ -35,7 +52,7 @@ jobs:
             python encrypted_data/prepare_data.py
           fi
 
-      - name: Build data.enc if not exists
+      - name: Build data.enc if missing
         if: steps.prep_data.outputs.data_exists != 'true'
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
@@ -74,7 +91,7 @@ jobs:
           tar -xzf data.tar.gz -C data
           rm data.tar.gz
 
-      - name: Encrypt source if src.enc missing
+      - name: Encrypt source files if needed
         id: enc_src
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
@@ -95,7 +112,7 @@ jobs:
               fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
             "
             rm -rf encrypted_data/src src.tar.gz
-            git config user.name "github-actions"
+            git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add -A
             git commit -m "encrypt source files" || true
@@ -120,11 +137,15 @@ jobs:
           tar -xzf src.tar.gz
           rm src.tar.gz
 
-      - uses: actions/setup-node@v4
-        with: { node-version: '18' }
-      - run: npm install papaparse
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-      - name: List strategies
+      - name: Install Node dependencies
+        run: npm install papaparse
+
+      - name: List available strategies
         id: list_strategies
         run: |
           files=$(ls strategies/*.js 2>/dev/null | sed 's|strategies/||' | jq -R -s -c 'split("\n")[:-1]')
@@ -145,7 +166,7 @@ jobs:
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
-      - name: Upload prepared
+      - name: Upload prepared environment
         uses: actions/upload-artifact@v4
         with:
           name: prep
@@ -164,21 +185,25 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
-      max-parallel: 10
+      max-parallel: 8
       matrix:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
         chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
     steps:
-      - uses: actions/checkout@v5
+      - name: Checkout repository
+        uses: actions/checkout@v5
         with:
-          token: ${{ secrets.GH_PAT }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/download-artifact@v4
+      - name: Download prepared environment
+        uses: actions/download-artifact@v4
         with:
           name: prep
 
-      - uses: actions/setup-node@v4
-        with: { node-version: '18' }
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
       - name: Run backtest for chunk
         run: |
@@ -190,10 +215,10 @@ jobs:
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
-      - name: Commit and push results
+      - name: Commit and push encrypted results
         run: |
           if [ -f results/*/chunk_*/results.enc ]; then
-            git config user.name "github-actions"
+            git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add results/
             git commit -m "backtest chunk ${{ matrix.chunk }} for ${{ matrix.strategy_file }}" || true
