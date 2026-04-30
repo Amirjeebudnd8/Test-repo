@@ -14,13 +14,15 @@ on:
   workflow_dispatch:
 
 jobs:
+  # ------------------------------------------------------------
+  #  Job: Idempotency – only run if results are incomplete
+  # ------------------------------------------------------------
   check-completion:
     runs-on: ubuntu-latest
     outputs:
       all_completed: ${{ steps.check.outputs.all_completed }}
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -28,7 +30,7 @@ jobs:
         id: check
         run: |
           ALL_COMPLETED=true
-          if [ -d strategies ] && find strategies -maxdepth 1 -name "*.js" -print -quit | grep -q .; then
+          if find strategies -maxdepth 1 -name "*.js" -print -quit | grep -q .; then
             for strategy in strategies/*.js; do
               strat_name="$(basename "$strategy" .js)"
               if ! find results -path "results/${strat_name}/chunk_*/results.enc" -print -quit | grep -q .; then
@@ -39,6 +41,9 @@ jobs:
           fi
           echo "all_completed=$ALL_COMPLETED" >> $GITHUB_OUTPUT
 
+  # ------------------------------------------------------------
+  #  Job 1: prepare data & source encryption
+  # ------------------------------------------------------------
   prepare:
     needs: check-completion
     if: needs.check-completion.outputs.all_completed != 'true'
@@ -48,12 +53,12 @@ jobs:
       strategies: ${{ steps.list_strategies.outputs.files }}
       chunks: ${{ steps.build_chunks.outputs.chunks }}
     steps:
-      - name: Checkout repository
+      - name: 1. Checkout repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cache ZIP files
+      - name: 2. Cache ZIP files
         uses: actions/cache@v4
         with:
           path: zips
@@ -61,23 +66,58 @@ jobs:
           restore-keys: |
             zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-
 
-      - name: Setup Python
+      - name: 3. Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Python deps
+      - name: 4. Install Python deps
         run: pip install pandas requests
 
-      # -------- مرحله‌ی جدید: باز کردن data.enc و تشخیص داده‌های قدیمی --------
-      - name: Decrypt existing data to check volume
-        id: check_data_volume
+      # ------------------------------------------------------------
+      #  🔓 NEW: Unlock source files if unlock.txt exists
+      # ------------------------------------------------------------
+      - name: 🔓 Check for unlock request
+        id: unlock
+        run: |
+          UNLOCK_FILE="encrypted_data/src/unlock.txt"
+          if [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
+            echo "🔓 درخواست بازگشایی قفل شناسایی شد. فایل‌های سورس بازیابی می‌شوند."
+            if [ -f encrypted_data/src.enc ]; then
+              node -e "
+                const crypto=require('crypto'),fs=require('fs');
+                const pass=process.env.CODE_PASSWORD;
+                const data=fs.readFileSync('encrypted_data/src.enc');
+                const key=crypto.scryptSync(pass,'salt',32);
+                const iv=data.slice(0,16);
+                const enc=data.slice(16);
+                const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+                const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
+                fs.writeFileSync('src.tar.gz',dec);
+              "
+              tar -xzf src.tar.gz -C encrypted_data/src
+              rm src.tar.gz
+              echo "✅ فایل‌های سورس از src.enc استخراج شدند."
+            fi
+            rm -f "$UNLOCK_FILE"
+            git add "$UNLOCK_FILE"
+            git commit -m "remove unlock flag after restoring source files" || true
+            git push
+          else
+            echo "🔒 حالت عادی. فایل unlock.txt با مقدار '1' یافت نشد."
+          fi
+        env:
+          CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
+
+      # ------------------------------------------------------------
+      #  Data preparation (always run)
+      # ------------------------------------------------------------
+      - name: 5. Decrypt data.enc if exists
+        id: data_decrypt
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
-          HAVE_DATA=false
           if [ -f encrypted_data/data.enc ]; then
-            mkdir -p data
             node -e "
               const crypto=require('crypto'),fs=require('fs');
               const pass=process.env.DATA_PASSWORD;
@@ -89,27 +129,18 @@ jobs:
               const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
               fs.writeFileSync('data.tar.gz',dec);
             "
+            mkdir -p data
             tar -xzf data.tar.gz -C data
             rm data.tar.gz
-            HAVE_DATA=true
-          fi
-          echo "have_data=$HAVE_DATA" >> $GITHUB_OUTPUT
-          if [ -d data/All_Coins_Combined ]; then
-            CNT=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-            echo "csv_count=$CNT" >> $GITHUB_OUTPUT
+            echo "had_data=true" >> $GITHUB_OUTPUT
           else
-            echo "csv_count=0" >> $GITHUB_OUTPUT
+            echo "had_data=false" >> $GITHUB_OUTPUT
           fi
 
-      # -------- اجرای prepare_data.py فقط در صورت نیاز --------
-      - name: Prepare market data (only if needed)
-        id: prep_data
-        if: steps.check_data_volume.outputs.csv_count == '0' || steps.check_data_volume.outputs.csv_count < 1000
+      - name: 6. Run prepare_data.py (always)
         run: python encrypted_data/prepare_data.py
 
-      # -------- بازسازی data.enc فقط اگر اسکریپت اجرا شده باشد --------
-      - name: Rebuild data.enc after new data
-        if: steps.prep_data.conclusion == 'success'
+      - name: 7. Rebuild data.enc
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
@@ -128,63 +159,59 @@ jobs:
           "
           rm data.tar.gz
 
-      # -------- همیشه data.enc را برای مراحل بعد باز می‌کنیم --------
-      - name: Ensure data is decrypted for next steps
-        if: steps.check_data_volume.outputs.have_data == 'true' || steps.prep_data.conclusion == 'success'
-        env:
-          DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
+      # ------------------------------------------------------------
+      #  🔒 Source encryption / wipe based on content changes
+      # ------------------------------------------------------------
+      - name: 8. Check if source files need re-encryption
+        id: source_check
         run: |
-          node -e "
-            const crypto=require('crypto'),fs=require('fs');
-            const pass=process.env.DATA_PASSWORD;
-            const data=fs.readFileSync('encrypted_data/data.enc');
-            const key=crypto.scryptSync(pass,'salt',32);
-            const iv=data.slice(0,16);
-            const enc=data.slice(16);
-            const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
-            const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
-            fs.writeFileSync('data.tar.gz',dec);
-          "
-          tar -xzf data.tar.gz -C data
-          rm data.tar.gz
+          SRC_DIR="encrypted_data/src"
+          NEED_ENC=false
+          if [ -d "$SRC_DIR" ]; then
+            # اگر محتوای فایلی غیر صفر باشد یعنی کاربر آن را ویرایش کرده
+            for f in "$SRC_DIR"/*.js "$SRC_DIR"/*.py; do
+              if [ -f "$f" ] && [ -s "$f" ]; then
+                NEED_ENC=true
+                break
+              fi
+            done
+          fi
+          echo "need_enc=$NEED_ENC" >> $GITHUB_OUTPUT
 
-      - name: Encrypt source files if needed
-        id: enc_src
+      - name: 9. Encrypt source files if needed
+        if: steps.source_check.outputs.need_enc == 'true'
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
-          if [ -f encrypted_data/src.enc ]; then
-            echo "src_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "src_exists=false" >> $GITHUB_OUTPUT
-            tar -czf src.tar.gz -C encrypted_data/src .
-            node -e "
-              const crypto=require('crypto'),fs=require('fs');
-              const pass=process.env.CODE_PASSWORD;
-              const key=crypto.scryptSync(pass,'salt',32);
-              const iv=crypto.randomBytes(16);
-              const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
-              const input=fs.readFileSync('src.tar.gz');
-              const enc=Buffer.concat([cipher.update(input),cipher.final()]);
-              fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
-            "
-            rm -rf encrypted_data/src src.tar.gz
-            git add -A
-            git commit -m "encrypt source files" || true
-            git push
-          fi
+          SRC_DIR="encrypted_data/src"
+          tar -czf src.tar.gz -C "$SRC_DIR" .
+          node -e "
+            const crypto=require('crypto'),fs=require('fs');
+            const pass=process.env.CODE_PASSWORD;
+            const key=crypto.scryptSync(pass,'salt',32);
+            const iv=crypto.randomBytes(16);
+            const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
+            const input=fs.readFileSync('src.tar.gz');
+            const enc=Buffer.concat([cipher.update(input),cipher.final()]);
+            fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
+          "
+          rm src.tar.gz
 
-      - name: Wipe plaintext source files
-        if: steps.enc_src.outputs.src_exists != 'true'
+      - name: 10. Wipe source files content (keep files)
+        if: steps.source_check.outputs.need_enc == 'true'
         run: |
-          for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
+          SRC_DIR="encrypted_data/src"
+          for f in "$SRC_DIR"/*.js "$SRC_DIR"/*.py; do
             [ -f "$f" ] && echo -n "" > "$f"
           done
-          git add encrypted_data/src/
-          git commit -m "wipe source files after encryption" || true
+          git add "$SRC_DIR/"
+          git commit -m "wipe source file contents after re-encryption" || true
           git push
 
-      - name: Decrypt src.enc
+      # ------------------------------------------------------------
+      #  Decrypt src.enc for backtest job
+      # ------------------------------------------------------------
+      - name: 11. Decrypt src.enc for backtest
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
@@ -202,31 +229,36 @@ jobs:
           tar -xzf src.tar.gz
           rm src.tar.gz
 
-      - name: Setup Node.js
+      - name: 12. Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Install Node deps
+      - name: 13. Install Node deps
         run: npm install papaparse
 
-      - name: List strategies
+      - name: 14. List strategies
         id: list_strategies
         run: |
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: Build dynamic chunks
+      - name: 15. Build dynamic chunks
         id: build_chunks
         run: |
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-          size=25; n=$(( (cnt + size - 1) / size ))
+          size=25
+          n=$(( (cnt + size - 1) / size ))
           chunks="["
-          for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done
+          for ((i=0; i<n; i++)); do
+            s=$((i*size))
+            [ $i -gt 0 ] && chunks+=", "
+            chunks+="$s"
+          done
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
-      - name: Upload prepared
+      - name: 16. Upload prepared artifact
         uses: actions/upload-artifact@v4
         with:
           name: prep
@@ -239,6 +271,9 @@ jobs:
             node_modules/
             package.json
 
+  # ------------------------------------------------------------
+  #  Job 2: Backtest (unchanged, already fixed)
+  # ------------------------------------------------------------
   backtest:
     needs: [check-completion, prepare]
     if: needs.prepare.outputs.strategies != '[]' && needs.check-completion.outputs.all_completed != 'true'
@@ -251,22 +286,18 @@ jobs:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
         chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download prepared
-        uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v4
         with:
           name: prep
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # -------- سلامت‌سنجی بدون Broken pipe --------
       - name: 🩺 Pre‑flight Health Check
         shell: bash
         run: |
@@ -279,13 +310,10 @@ jobs:
             echo "❌ FATAL: Data directory missing."
             exit 1
           fi
-
-          # شمارش فایل‌ها با find (بدون ls و pipe)
           mapfile -t CSV_FILES < <(find "$DATA_DIR" -maxdepth 1 -name "*.csv" -print0 | xargs -0 ls -1 2>/dev/null)
           FILE_COUNT=${#CSV_FILES[@]}
           echo "✅ Data directory: $DATA_DIR"
           echo "   Total CSV files: $FILE_COUNT"
-
           if [ "$FILE_COUNT" -gt 0 ]; then
             FIRST=$(basename "${CSV_FILES[0]}")
             LAST=$(basename "${CSV_FILES[-1]}")
@@ -297,7 +325,6 @@ jobs:
             done
             echo "   Files with >2500 candles: $HIGH"
           fi
-
           echo ""
           echo "⚙️  Core JS files:"
           for cf in backtest-core.js divergence-detector.js run-backtest.js; do
@@ -319,7 +346,7 @@ jobs:
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
-      - name: Post‑flight Diagnostics
+      - name: 🩺 Post‑flight Diagnostics
         if: always()
         run: |
           STRAT="${{ matrix.strategy_file }}"
