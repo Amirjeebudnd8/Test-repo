@@ -99,10 +99,6 @@ jobs:
               rm -rf temp_src_restore src.tar.gz
               echo "✅ فایل‌های سورس استخراج شدند."
 
-              # 🛡️ قفل‌گذاری پوشه – فقط خواندنی برای همه، غیرقابل حذف
-              chmod -R 555 encrypted_data/src
-              echo "🛡️ پوشه src قفل شد (read-only)."
-
               # گذاشتن پرچم آنلاک برای جلوگیری از رمزنگاری مجدد در اجراهای بعدی
               touch encrypted_data/src/.unlocked.flag
               echo "🏁 پرچم .unlocked.flag ساخته شد."
@@ -205,11 +201,6 @@ jobs:
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
-          # قبل از رمزنگاری، پوشه را قابل نوشتن کن (اگر قفل بود)
-          if [ -d encrypted_data/src ]; then
-            chmod -R 755 encrypted_data/src
-          fi
-
           tar -czf src.tar.gz -C encrypted_data/src .
           node -e "
             const crypto=require('crypto'),fs=require('fs');
@@ -223,19 +214,9 @@ jobs:
           "
           rm src.tar.gz
 
-          # بعد از رمزنگاری، دوباره قفل کن (اگر پرچم نبود)
-          if [ ! -f encrypted_data/src/.unlocked.flag ]; then
-            chmod -R 555 encrypted_data/src
-          fi
-
       - name: 12. Wipe source files content (keep files)
         if: steps.source_check.outputs.need_enc == 'true'
         run: |
-          # قفل را موقتاً بردار
-          if [ -d encrypted_data/src ]; then
-            chmod -R 755 encrypted_data/src
-          fi
-
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
           git pull --rebase
@@ -248,10 +229,6 @@ jobs:
 
           git add encrypted_data/src/
           git commit -m "wipe source file contents" || true
-
-          # دوباره قفل کن
-          chmod -R 555 encrypted_data/src
-
           git push
 
       # ------------------------------------------------------------
