@@ -5,7 +5,6 @@ import requests
 import time
 from datetime import datetime
 
-# ========== تنظیمات ==========
 SYMBOLS = ["BTCUSDT", "ETHUSDT", "SOLUSDT", "XRPUSDT"]
 INTERVAL = "5m"
 BASE_URL = "https://data.binance.vision/data/spot/monthly/klines"
@@ -19,11 +18,23 @@ def days_in_month(year, month):
         return 29 if (year % 4 == 0 and year % 100 != 0) or (year % 400 == 0) else 28
     return 30 if month in [4, 6, 9, 11] else 31
 
+# ---------- دقیقاً همان تابع ts_to_datetime در prepare_data.py خودتان ----------
 def ts_to_datetime(ts):
     try:
         if pd.isna(ts):
             return pd.NaT
-        return pd.to_datetime(int(float(ts)), unit='ms', utc=True)
+        num = int(float(ts))
+        s = str(num)
+        l = len(s)
+        if l >= 19:          # نانوثانیه
+            seconds = num // 1_000_000_000
+        elif l == 16:        # میکروثانیه
+            seconds = num // 1_000_000
+        elif l == 13:        # میلی‌ثانیه
+            seconds = num // 1_000
+        else:                # ثانیه یا کمتر
+            seconds = num
+        return pd.to_datetime(seconds, unit='s', utc=True)
     except:
         return pd.NaT
 
@@ -69,7 +80,7 @@ def process_zip(zip_path, coin):
     df['year'] = df['timestamp'].dt.year
     df['month'] = df['timestamp'].dt.month
     df['day'] = df['timestamp'].dt.day
-    # فقط داده‌های ۲۰۲۵ و ۲۰۲۶
+    # فقط ۲۰۲۵ و ۲۰۲۶
     df = df[df['year'].isin([2025, 2026])]
     if df.empty:
         return 0
@@ -92,52 +103,47 @@ def process_zip(zip_path, coin):
 def download_zips_2025_2026():
     os.makedirs(ZIPS_DIR, exist_ok=True)
     total = 0
-    current_month = datetime.now().month
+    cur_month = datetime.now().month
     for symbol in SYMBOLS:
         for year in [2025, 2026]:
             for month in range(1, 13):
-                if year == 2026 and month > current_month:
+                if year == 2026 and month > cur_month:
                     break
                 filename = f"{symbol}-{INTERVAL}-{year}-{month:02d}.zip"
                 url = f"{BASE_URL}/{symbol}/{INTERVAL}/{filename}"
                 local_path = os.path.join(ZIPS_DIR, filename)
 
                 if os.path.exists(local_path):
-                    print(f"⏩ از قبل موجود: {filename}")
                     total += 1
                     continue
 
                 try:
                     resp = requests.get(url, stream=True, timeout=30)
                     if resp.status_code == 404:
-                        print(f"⚠️ 404: {filename}")
                         continue
                     resp.raise_for_status()
                     with open(local_path, 'wb') as f:
                         for chunk in resp.iter_content(8192):
                             f.write(chunk)
-                    print(f"✅ دانلود شد: {filename}")
                     total += 1
-                except Exception as e:
-                    print(f"❌ خطا: {filename} → {e}")
+                except:
+                    pass
                 time.sleep(0.5)
-    print(f"\n🎯 کل فایل‌های ZIP دریافت‌شده: {total}")
+    print(f"🎯 کل فایل‌های ZIP دریافت‌شده: {total}")
 
 def main():
     os.makedirs(COMBINED_DIR, exist_ok=True)
 
-    # دانلود فایل‌های ZIP جدید اگر از قبل دانلود نشده باشند
     if not os.path.isdir(ZIPS_DIR) or not any(f.endswith('.zip') for f in os.listdir(ZIPS_DIR)):
-        print("⬇️  در حال دانلود فایل‌های ZIP ۲۰۲۵/۲۰۲۶...")
         download_zips_2025_2026()
 
-    # استخراج و بخش‌بندی
-    all_zips = [f for f in os.listdir(ZIPS_DIR) if f.endswith('.zip')]
-    for z in all_zips:
-        if '2025' in z or '2026' in z:
+    for z in os.listdir(ZIPS_DIR):
+        if z.endswith('.zip') and ('2025' in z or '2026' in z):
             coin = z.split('-')[0]
             print(f"📦 پردازش {z} ...")
-            process_zip(os.path.join(ZIPS_DIR, z), coin)
+            added = process_zip(os.path.join(ZIPS_DIR, z), coin)
+            if added:
+                print(f"   ✅ {added} فایل CSV جدید")
 
     print(f"🎯 کل فایل‌های CSV در All_Coins_Combined: {len(os.listdir(COMBINED_DIR))}")
 
