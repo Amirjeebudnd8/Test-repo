@@ -190,39 +190,81 @@ jobs:
           rm data.tar.gz
 
       # ------------------------------------------------------------
-      #  🔒 رمزنگاری مجدد - فقط وقتی پرچم آنلاک وجود ندارد
+      #  🔒 رمزنگاری هوشمند – جلوگیری از پاک شدن فایل‌های سالم
       # ------------------------------------------------------------
-      - name: 10. Check if source files need re-encryption
-        id: source_check
+      - name: 10. Analyze source files
+        id: source_analysis
         run: |
-          NEED=false
-          if [ ! -f encrypted_data/src/.unlocked.flag ]; then
-            for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
-              [ -f "$f" ] && [ -s "$f" ] && NEED=true && break
-            done
-          fi
-          echo "need_enc=$NEED" >> $GITHUB_OUTPUT
+          ALL_FULL=true
+          ONE_FULL=false
+          FULL_COUNT=0
+          for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
+            [ -f "$f" ] && [ -s "$f" ] && { FULL_COUNT=$((FULL_COUNT+1)); ONE_FULL=true; }
+            [ -f "$f" ] && [ ! -s "$f" ] && ALL_FULL=false
+          done
+          echo "all_full=$ALL_FULL" >> $GITHUB_OUTPUT
+          echo "one_full=$ONE_FULL" >> $GITHUB_OUTPUT
+          echo "full_count=$FULL_COUNT" >> $GITHUB_OUTPUT
+          echo "Files with content: $FULL_COUNT, all_full=$ALL_FULL"
 
-      - name: 11. Encrypt source files if needed
-        if: steps.source_check.outputs.need_enc == 'true'
+      - name: 11. Encrypt source files (smart merge)
+        if: steps.source_analysis.outputs.one_full == 'true' && steps.unlock.outputs.unlocked != 'true'
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
-          tar -czf src.tar.gz -C encrypted_data/src .
-          node -e "
-            const crypto=require('crypto'),fs=require('fs');
-            const pass=process.env.CODE_PASSWORD;
-            const key=crypto.scryptSync(pass,'salt',32);
-            const iv=crypto.randomBytes(16);
-            const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
-            const input=fs.readFileSync('src.tar.gz');
-            const enc=Buffer.concat([cipher.update(input),cipher.final()]);
-            fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
-          "
-          rm src.tar.gz
+          if [ "${{ steps.source_analysis.outputs.all_full }}" = "true" ]; then
+            # همه فایل‌ها پر هستند – رمزنگاری ساده
+            tar -czf src.tar.gz -C encrypted_data/src .
+            node -e "
+              const crypto=require('crypto'),fs=require('fs');
+              const pass=process.env.CODE_PASSWORD;
+              const key=crypto.scryptSync(pass,'salt',32);
+              const iv=crypto.randomBytes(16);
+              const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
+              const input=fs.readFileSync('src.tar.gz');
+              const enc=Buffer.concat([cipher.update(input),cipher.final()]);
+              fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
+            "
+            rm src.tar.gz
+          else
+            # فقط یک یا چند فایل پر هستند – ادغام با نسخه‌ی قبلی
+            mkdir -p temp_merge
+            if [ -f encrypted_data/src.enc ]; then
+              node -e "
+                const crypto=require('crypto'),fs=require('fs');
+                const pass=process.env.CODE_PASSWORD;
+                const data=fs.readFileSync('encrypted_data/src.enc');
+                const key=crypto.scryptSync(pass,'salt',32);
+                const iv=data.slice(0,16);
+                const enc=data.slice(16);
+                const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+                const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
+                fs.writeFileSync('src_old.tar.gz',dec);
+              "
+              tar -xzf src_old.tar.gz -C temp_merge
+              rm src_old.tar.gz
+            fi
+            # جایگزینی فایل‌های جدید (غیر خالی) روی نسخه‌ی قدیمی
+            for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
+              [ -f "$f" ] && [ -s "$f" ] && cp "$f" temp_merge/
+            done
+            # رمزنگاری پوشه‌ی ادغام‌شده
+            tar -czf src.tar.gz -C temp_merge .
+            node -e "
+              const crypto=require('crypto'),fs=require('fs');
+              const pass=process.env.CODE_PASSWORD;
+              const key=crypto.scryptSync(pass,'salt',32);
+              const iv=crypto.randomBytes(16);
+              const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
+              const input=fs.readFileSync('src.tar.gz');
+              const enc=Buffer.concat([cipher.update(input),cipher.final()]);
+              fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
+            "
+            rm -rf temp_merge src.tar.gz
+          fi
 
       - name: 12. Wipe source files content (keep files)
-        if: steps.source_check.outputs.need_enc == 'true'
+        if: steps.source_analysis.outputs.one_full == 'true' && steps.unlock.outputs.unlocked != 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
@@ -230,9 +272,8 @@ jobs:
             [ -f "$f" ] && echo -n "" > "$f"
           done
           rm -f encrypted_data/src/.unlocked.flag
-          # ⚡ کلید حل مشکل: اضافه کردن src.enc به commit
           git add encrypted_data/src/ encrypted_data/src.enc
-          git commit -m "wipe source file contents and update src.enc" || true
+          git commit -m "wipe source files and update src.enc" || true
           git stash --include-untracked 2>/dev/null || true
           git pull --rebase
           git stash pop 2>/dev/null || true
