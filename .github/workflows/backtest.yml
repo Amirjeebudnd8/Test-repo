@@ -1,6 +1,5 @@
 name: Complete 24/7 Pipeline
 
-
 permissions:
   contents: write
 
@@ -23,7 +22,6 @@ jobs:
       - uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-
       - name: Check if all results already exist
         id: check
         run: |
@@ -48,35 +46,45 @@ jobs:
       strategies: ${{ steps.list_strategies.outputs.files }}
       chunks: ${{ steps.build_chunks.outputs.chunks }}
     steps:
-      - uses: actions/checkout@v5
-        with: { token: ${{ secrets.GITHUB_TOKEN }} }
+      - name: 1. Checkout repository
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: actions/cache@v4
+      - name: 2. Cache ZIP files
+        uses: actions/cache@v4
         with:
           path: zips
           key: zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-${{ github.run_id }}
-          restore-keys: zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-
+          restore-keys: |
+            zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-
 
-      - uses: actions/setup-python@v5
-        with: { python-version: '3.10' }
-      - run: pip install pandas requests
+      - name: 3. Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
 
-      # ---- Unlock ----
+      - name: 4. Install Python deps
+        run: pip install pandas requests
+
+      # 🔓 مکانیزم Unlock (اختیاری)
       - name: 🔓 Check for unlock request
         id: unlock
-        env: { CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }} }
+        env:
+          CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
           UNLOCK_FILE="encrypted_data/src/unlock.txt"
           if [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
-            echo "🔓 باز کردن قفل..."
-            mkdir -p temp_src_restore
+            echo "🔓 درخواست بازگشایی قفل شناسایی شد. فایل‌های سورس بازیابی می‌شوند."
             if [ -f encrypted_data/src.enc ]; then
+              mkdir -p temp_src_restore
               node -e "
                 const crypto=require('crypto'),fs=require('fs');
                 const pass=process.env.CODE_PASSWORD;
                 const data=fs.readFileSync('encrypted_data/src.enc');
                 const key=crypto.scryptSync(pass,'salt',32);
-                const iv=data.slice(0,16), enc=data.slice(16);
+                const iv=data.slice(0,16);
+                const enc=data.slice(16);
                 const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
                 const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
                 fs.writeFileSync('src.tar.gz',dec);
@@ -90,25 +98,26 @@ jobs:
             git pull --rebase
             rm -f "$UNLOCK_FILE"
             git add "$UNLOCK_FILE"
-            git commit -m "remove unlock flag" || true
+            git commit -m "remove unlock flag after restoring source files" || true
             git push
           fi
 
-      # ---- ۲۰۲۵/۲۰۲۶ ----
-      - name: 🆕 Prepare 2025/2026 data if flag missing
+      # 🆕 دانلود و استخراج داده‌های ۲۰۲۵/۲۰۲۶
+      - name: 5. Prepare 2025/2026 data if needed
         id: prep_2025
         run: |
           FLAG="encrypted_data/data_2025_2026_done.flag"
           if [ ! -f "$FLAG" ]; then
-            echo "processing 2025/2026..."
+            echo "🆕 Processing 2025/2026 data..."
             python encrypted_data/prepare_2025_2026.py
             touch "$FLAG"
             echo "flag_created=true" >> $GITHUB_OUTPUT
           else
+            echo "✅ 2025/2026 data already processed."
             echo "flag_created=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Push flag if created
+      - name: 6. Push flag if created
         if: steps.prep_2025.outputs.flag_created == 'true'
         run: |
           git config user.name "github-actions[bot]"
@@ -118,10 +127,11 @@ jobs:
           git commit -m "mark 2025/2026 data prepared" || true
           git push
 
-      # ---- داده‌های اصلی ----
-      - name: Decrypt data.enc if exists
+      # مراحل آماده‌سازی داده‌های اصلی
+      - name: 7. Decrypt data.enc if exists
         id: data_decrypt
-        env: { DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }} }
+        env:
+          DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
           if [ -f encrypted_data/data.enc ]; then
             node -e "
@@ -129,19 +139,24 @@ jobs:
               const pass=process.env.DATA_PASSWORD;
               const data=fs.readFileSync('encrypted_data/data.enc');
               const key=crypto.scryptSync(pass,'salt',32);
-              const iv=data.slice(0,16), enc=data.slice(16);
+              const iv=data.slice(0,16);
+              const enc=data.slice(16);
               const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
               const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
               fs.writeFileSync('data.tar.gz',dec);
             "
             mkdir -p data && tar -xzf data.tar.gz -C data && rm data.tar.gz
+            echo "had_data=true" >> $GITHUB_OUTPUT
+          else
+            echo "had_data=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: Run main prepare_data.py
+      - name: 8. Run main prepare_data.py
         run: python encrypted_data/prepare_data.py
 
-      - name: Rebuild data.enc
-        env: { DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }} }
+      - name: 9. Rebuild data.enc
+        env:
+          DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
           cd data && tar -czf ../data.tar.gz All_Coins_Combined && cd ..
           node -e "
@@ -156,8 +171,8 @@ jobs:
           "
           rm data.tar.gz
 
-      # ---- رمزنگاری مجدد سورس ----
-      - name: 8. Check if source files need re-encryption
+      # مراحل رمزنگاری سورس
+      - name: 10. Check if source files need re-encryption
         id: source_check
         run: |
           NEED=false
@@ -166,9 +181,10 @@ jobs:
           done
           echo "need_enc=$NEED" >> $GITHUB_OUTPUT
 
-      - name: 9. Encrypt source files if needed
+      - name: 11. Encrypt source files if needed
         if: steps.source_check.outputs.need_enc == 'true'
-        env: { CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }} }
+        env:
+          CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
           tar -czf src.tar.gz -C encrypted_data/src .
           node -e "
@@ -183,7 +199,7 @@ jobs:
           "
           rm src.tar.gz
 
-      - name: 10. Wipe source files content (keep files)
+      - name: 12. Wipe source files content (keep files)
         if: steps.source_check.outputs.need_enc == 'true'
         run: |
           git config user.name "github-actions[bot]"
@@ -196,16 +212,17 @@ jobs:
           git commit -m "wipe source file contents" || true
           git push
 
-      # ---- آماده‌سازی برای بکتست ----
-      - name: 11. Decrypt src.enc for backtest
-        env: { CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }} }
+      - name: 13. Decrypt src.enc for backtest
+        env:
+          CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
           node -e "
             const crypto=require('crypto'),fs=require('fs');
             const pass=process.env.CODE_PASSWORD;
             const data=fs.readFileSync('encrypted_data/src.enc');
             const key=crypto.scryptSync(pass,'salt',32);
-            const iv=data.slice(0,16), enc=data.slice(16);
+            const iv=data.slice(0,16);
+            const enc=data.slice(16);
             const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
             const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
             fs.writeFileSync('src.tar.gz',dec);
