@@ -15,7 +15,7 @@ on:
 
 jobs:
   # ============================================================
-  #  Job: Idempotency (موقتاً غیرفعال شده)
+  #  Job: Idempotency (موقتاً غیرفعال)
   # ============================================================
   check-completion:
     runs-on: ubuntu-latest
@@ -29,7 +29,6 @@ jobs:
       - name: Check if all results already exist
         id: check
         run: |
-          # موقتاً غیرفعال – همیشه false برگردان
           echo "all_completed=false" >> $GITHUB_OUTPUT
 
   prepare:
@@ -41,6 +40,7 @@ jobs:
       strategies: ${{ steps.list_strategies.outputs.files }}
       chunks:   ${{ steps.build_chunks.outputs.chunks }}
     steps:
+      # ---------- مراحل ۱ تا ۴ (Checkout, Cache, Python, Deps) ----------
       - name: 1. Checkout repository
         uses: actions/checkout@v5
         with:
@@ -62,16 +62,12 @@ jobs:
       - name: 4. Install Python deps
         run: pip install pandas requests
 
-      # ------------------------------------------------------------
-      #  🆕 گام صفر: فقط پوشه را بسازد (بدون فایل اضافی)
-      # ------------------------------------------------------------
+      # ---------- ۰. پوشه src ----------
       - name: 0. Ensure src folder exists
         run: mkdir -p encrypted_data/src
 
-      # ------------------------------------------------------------
-      #  🔓 مکانیزم Unlock (1 = سورس, 3 = نتایج)
-      # ------------------------------------------------------------
-      - name: 🔓 Check for unlock request
+      # ---------- 🔓 UNLOCK ----------
+      - name: 🔓 Unlock Handler
         id: unlock
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
@@ -79,45 +75,41 @@ jobs:
         run: |
           echo "unlocked=false" >> $GITHUB_OUTPUT
           UNLOCK_FILE="encrypted_data/src/unlock.txt"
+          FLAG_FILE="encrypted_data/src/.unlocked.flag"
 
-          # [۳] حالت عدد ۳ : استخراج تمام نتایج
+          # [۳] unlock = 3 : استخراج همه نتایج
           if [ -f "$UNLOCK_FILE" ] && grep -q "^3$" "$UNLOCK_FILE"; then
-            echo "📊 درخواست استخراج نتایج (عدد ۳) شناسایی شد."
+            echo "📊 استخراج نتایج (unlock=3)"
 
             find results -name "results.enc" -type f | while read ENC; do
-              echo "  ⚙️  استخراج: $ENC"
+              echo "  ⚙️  $ENC"
               DIR=$(dirname "$ENC")
               node -e "
-                const crypto=require('crypto'),fs=require('fs'),path=require('path');
+                const crypto=require('crypto'),fs=require('fs');
                 const pass=process.env.RESULTS_PASSWORD;
                 const data=fs.readFileSync('${ENC}');
                 const key=crypto.scryptSync(pass,'salt',32);
-                const iv=data.slice(0,16);
-                const enc=data.slice(16);
+                const iv=data.slice(0,16), enc=data.slice(16);
                 const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
                 const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
-                const tarPath='${DIR}/results.tar.gz';
-                fs.writeFileSync(tarPath,dec);
+                fs.writeFileSync('${DIR}/results.tar.gz',dec);
               "
               tar -xzf "$DIR/results.tar.gz" -C "$DIR"
               rm -f "$DIR/results.tar.gz"
             done
 
-            # ثبت تغییرات و push
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add results/
             git commit -m "extract all results (unlock 3)" || true
-            git stash --include-untracked 2>/dev/null || true
-            git pull --rebase
-            git stash pop 2>/dev/null || true
-            git push
+            git pull --rebase && git push
 
             rm -f "$UNLOCK_FILE"
+            rm -f "$FLAG_FILE"    # پرچم هم پاک شود
 
-          # [۱] حالت عدد ۱ : استخراج سورس‌ها
+          # [۱] unlock = 1 : استخراج سورس
           elif [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
-            echo "🔓 باز کردن قفل (سورس)..."
+            echo "🔓 استخراج سورس (unlock=1)"
             echo "unlocked=true" >> $GITHUB_OUTPUT
 
             if [ -f encrypted_data/src.enc ]; then
@@ -127,8 +119,7 @@ jobs:
                 const pass=process.env.CODE_PASSWORD;
                 const data=fs.readFileSync('encrypted_data/src.enc');
                 const key=crypto.scryptSync(pass,'salt',32);
-                const iv=data.slice(0,16);
-                const enc=data.slice(16);
+                const iv=data.slice(0,16), enc=data.slice(16);
                 const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
                 const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
                 fs.writeFileSync('src.tar.gz',dec);
@@ -137,9 +128,9 @@ jobs:
               mkdir -p encrypted_data/src
               cp -r temp_src_restore/* encrypted_data/src/
               rm -rf temp_src_restore src.tar.gz
-              echo "✅ فایل‌های سورس استخراج شدند."
+              echo "✅ سورس استخراج شد."
               touch encrypted_data/src/.unlocked.flag
-              echo "🏁 پرچم .unlocked.flag ساخته شد."
+              echo "🏁 پرچم ساخته شد."
             fi
 
             git config user.name "github-actions[bot]"
@@ -147,31 +138,23 @@ jobs:
             git add encrypted_data/src/*.js encrypted_data/src/.unlocked.flag 2>/dev/null || true
             git rm --cached "$UNLOCK_FILE" 2>/dev/null || rm -f "$UNLOCK_FILE"
             git commit -m "unlock source files" || true
-            git stash --include-untracked 2>/dev/null || true
-            git pull --rebase
-            git stash pop 2>/dev/null || true
-            git push
+            git pull --rebase && git push
 
           else
-            # پاک‌سازی فایل‌های JSON استخراج‌شده (اگر unlock ≠ 3)
-            echo "🧹 پاک‌سازی فایل‌های استخراج‌شده از نتایج ..."
+            # حالت عادی – پاکسازی JSONهای قدیمی نتایج
+            echo "🧹 پاکسازی JSONهای استخراج‌شده قبلی"
             find results -type f ! -name "results.enc" \( -name "*.json" -o -name "*.tar.gz" \) -delete
             if find results -type f ! -name "results.enc" | grep -q .; then
               git config user.name "github-actions[bot]"
               git config user.email "actions@github.com"
               git add results/
-              git commit -m "cleanup extracted result files" || true
-              git stash --include-untracked 2>/dev/null || true
-              git pull --rebase
-              git stash pop 2>/dev/null || true
-              git push
+              git commit -m "cleanup extracted json files" || true
+              git pull --rebase && git push
             fi
-            echo "🔒 حالت عادی. فایل unlock.txt با مقدار '1' یا '3' یافت نشد."
+            echo "🔒 حالت عادی (no unlock)"
           fi
 
-      # ------------------------------------------------------------
-      #  🆕 دانلود و بخش‌بندی داده‌های ۲۰۲۵/۲۰۲۶ (همیشه)
-      # ------------------------------------------------------------
+      # ---------- ۵. ۲۰۲۵/۲۰۲۶ ----------
       - name: 5. Prepare 2025/2026 data if needed
         id: prep_2025
         run: |
@@ -196,9 +179,7 @@ jobs:
           git commit -m "mark 2025/2026 prepared" || true
           git push
 
-      # ------------------------------------------------------------
-      #  داده‌های اصلی
-      # ------------------------------------------------------------
+      # ---------- داده‌های اصلی ----------
       - name: 7. Decrypt data.enc if exists
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
@@ -209,8 +190,7 @@ jobs:
               const pass=process.env.DATA_PASSWORD;
               const data=fs.readFileSync('encrypted_data/data.enc');
               const key=crypto.scryptSync(pass,'salt',32);
-              const iv=data.slice(0,16);
-              const enc=data.slice(16);
+              const iv=data.slice(0,16), enc=data.slice(16);
               const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
               const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
               fs.writeFileSync('data.tar.gz',dec);
@@ -235,23 +215,17 @@ jobs:
           "
           rm data.tar.gz
 
-      # ------------------------------------------------------------
-      #  🔒 رمزنگاری هوشمند – جلوگیری از پاک شدن فایل‌های سالم
-      # ------------------------------------------------------------
+      # ---------- ۱۰-۱۲ رمزنگاری هوشمند ----------
       - name: 10. Analyze source files
         id: source_analysis
         run: |
-          ALL_FULL=true
-          ONE_FULL=false
-          FULL_COUNT=0
+          ALL_FULL=true; ONE_FULL=false
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
-            [ -f "$f" ] && [ -s "$f" ] && { FULL_COUNT=$((FULL_COUNT+1)); ONE_FULL=true; }
+            [ -f "$f" ] && [ -s "$f" ] && ONE_FULL=true
             [ -f "$f" ] && [ ! -s "$f" ] && ALL_FULL=false
           done
           echo "all_full=$ALL_FULL" >> $GITHUB_OUTPUT
           echo "one_full=$ONE_FULL" >> $GITHUB_OUTPUT
-          echo "full_count=$FULL_COUNT" >> $GITHUB_OUTPUT
-          echo "Files with content: $FULL_COUNT, all_full=$ALL_FULL"
 
       - name: 11. Encrypt source files (smart merge)
         if: steps.source_analysis.outputs.one_full == 'true' && steps.unlock.outputs.unlocked != 'true'
@@ -260,17 +234,6 @@ jobs:
         run: |
           if [ "${{ steps.source_analysis.outputs.all_full }}" = "true" ]; then
             tar -czf src.tar.gz -C encrypted_data/src .
-            node -e "
-              const crypto=require('crypto'),fs=require('fs');
-              const pass=process.env.CODE_PASSWORD;
-              const key=crypto.scryptSync(pass,'salt',32);
-              const iv=crypto.randomBytes(16);
-              const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
-              const input=fs.readFileSync('src.tar.gz');
-              const enc=Buffer.concat([cipher.update(input),cipher.final()]);
-              fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
-            "
-            rm src.tar.gz
           else
             mkdir -p temp_merge
             if [ -f encrypted_data/src.enc ]; then
@@ -279,31 +242,30 @@ jobs:
                 const pass=process.env.CODE_PASSWORD;
                 const data=fs.readFileSync('encrypted_data/src.enc');
                 const key=crypto.scryptSync(pass,'salt',32);
-                const iv=data.slice(0,16);
-                const enc=data.slice(16);
+                const iv=data.slice(0,16), enc=data.slice(16);
                 const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
                 const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
                 fs.writeFileSync('src_old.tar.gz',dec);
               "
-              tar -xzf src_old.tar.gz -C temp_merge
-              rm src_old.tar.gz
+              tar -xzf src_old.tar.gz -C temp_merge; rm src_old.tar.gz
             fi
             for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
               [ -f "$f" ] && [ -s "$f" ] && cp "$f" temp_merge/
             done
             tar -czf src.tar.gz -C temp_merge .
-            node -e "
-              const crypto=require('crypto'),fs=require('fs');
-              const pass=process.env.CODE_PASSWORD;
-              const key=crypto.scryptSync(pass,'salt',32);
-              const iv=crypto.randomBytes(16);
-              const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
-              const input=fs.readFileSync('src.tar.gz');
-              const enc=Buffer.concat([cipher.update(input),cipher.final()]);
-              fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
-            "
-            rm -rf temp_merge src.tar.gz
+            rm -rf temp_merge
           fi
+          node -e "
+            const crypto=require('crypto'),fs=require('fs');
+            const pass=process.env.CODE_PASSWORD;
+            const key=crypto.scryptSync(pass,'salt',32);
+            const iv=crypto.randomBytes(16);
+            const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
+            const input=fs.readFileSync('src.tar.gz');
+            const enc=Buffer.concat([cipher.update(input),cipher.final()]);
+            fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
+          "
+          rm src.tar.gz
 
       - name: 12. Wipe source files content (keep files)
         if: steps.source_analysis.outputs.one_full == 'true' && steps.unlock.outputs.unlocked != 'true'
@@ -313,19 +275,16 @@ jobs:
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
             [ -f "$f" ] && echo -n "" > "$f"
           done
+          # پرچم را فقط در صورتی پاک کن که unlock=1 نبوده باشد
+          # (یعنی حالت عادی ویرایش و رمزنگاری مجدد)
           rm -f encrypted_data/src/.unlocked.flag
           git add encrypted_data/src/ encrypted_data/src.enc
           git commit -m "wipe source files and update src.enc" || true
           git config merge.ours.driver true
           echo '*.enc merge=ours' >> .gitattributes
-          git stash --include-untracked 2>/dev/null || true
-          git pull --rebase
-          git stash pop 2>/dev/null || true
-          git push
+          git pull --rebase && git push
 
-      # ------------------------------------------------------------
-      #  آماده‌سازی برای بکتست
-      # ------------------------------------------------------------
+      # ---------- ۱۳-۱۵ Decrypt, Node, Deps ----------
       - name: 13. Decrypt src.enc for backtest
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
@@ -335,21 +294,16 @@ jobs:
             const pass=process.env.CODE_PASSWORD;
             const data=fs.readFileSync('encrypted_data/src.enc');
             const key=crypto.scryptSync(pass,'salt',32);
-            const iv=data.slice(0,16);
-            const enc=data.slice(16);
+            const iv=data.slice(0,16), enc=data.slice(16);
             const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
             const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
             fs.writeFileSync('src.tar.gz',dec);
           "
           tar -xzf src.tar.gz && rm src.tar.gz
 
-      - name: 14. Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: 15. Install Node deps
-        run: npm install papaparse
+      - uses: actions/setup-node@v4
+        with: { node-version: '18' }
+      - run: npm install papaparse
 
       - name: 16. List strategies
         id: list_strategies
@@ -357,98 +311,60 @@ jobs:
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      # ------------------------------------------------------------
-      #  ساختن چانک‌های هوشمند (موقتاً محدود به ۲ فایل)
-      # ------------------------------------------------------------
-      - name: 17. Build dynamic chunks
+      - name: 17. Build dynamic chunks (TEST – 2 files)
         id: build_chunks
         run: |
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-          cnt=2                     # ← موقتاً فقط ۲ فایل اول
+          cnt=2                     # موقتاً ۲ فایل
           size=1; n=$(( (cnt + size - 1) / size ))
-          chunks="["
-          for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done
-          chunks+="]"
+          chunks="["; for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done; chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
-      - name: 18. Upload prepared environment
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: prep
           path: |
-            data/
-            backtest-core.js
-            divergence-detector.js
-            run-backtest.js
-            strategies/
-            node_modules/
-            package.json
+            data/ backtest-core.js divergence-detector.js run-backtest.js strategies/ node_modules/ package.json
 
   backtest:
     needs: [check-completion, prepare]
-    if: needs.prepare.outputs.strategies != '[]' && needs.check-completion.outputs.all_completed != 'true'
+    if: needs.prepare.outputs.strategies != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
       fail-fast: false
-      max-parallel: 8
+      max-parallel: 2
       matrix:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
         chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
     steps:
-      - name: 1. Checkout repository
-        uses: actions/checkout@v5
-        with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/checkout@v5
+        with: { token: ${{ secrets.GITHUB_TOKEN }} }
+      - uses: actions/download-artifact@v4
+        with: { name: prep }
+      - uses: actions/setup-node@v4
+        with: { node-version: '18' }
 
-      - name: 2. Download prepared environment
-        uses: actions/download-artifact@v4
-        with:
-          name: prep
-
-      - name: 3. Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: 🩺 4. Pre‑flight Health Check
+      - name: 🩺 4. Health Check
         shell: bash
         run: |
-          set +e
           echo "=============================================="
           echo "   📊 PRE‑FLIGHT HEALTH REPORT"
           echo "=============================================="
           DATA_DIR="data/All_Coins_Combined"
-          if [ ! -d "$DATA_DIR" ]; then
-            echo "❌ FATAL: Data directory missing."
-            exit 1
-          fi
+          [ ! -d "$DATA_DIR" ] && { echo "❌ Data dir missing"; exit 1; }
           mapfile -t CSV_FILES < <(find "$DATA_DIR" -maxdepth 1 -name "*.csv" -print0 | xargs -0 ls -1 2>/dev/null)
-          FILE_COUNT=${#CSV_FILES[@]}
-          echo "✅ Data directory: $DATA_DIR"
-          echo "   Total CSV files: $FILE_COUNT"
-          if [ "$FILE_COUNT" -gt 0 ]; then
-            FIRST=$(basename "${CSV_FILES[0]}")
-            LAST=$(basename "${CSV_FILES[-1]}")
-            echo "   First file: $FIRST"
-            echo "   Last file : $LAST"
-          fi
-          echo ""
-          echo "Current job: strategy=${{ matrix.strategy_file }}, chunk=${{ matrix.chunk }}"
-          echo ""
-          echo "⚙️  Core JS files:"
+          echo "✅ Total CSV: ${#CSV_FILES[@]}"
+          [ ${#CSV_FILES[@]} -gt 0 ] && echo "   First: $(basename "${CSV_FILES[0]}")   Last: $(basename "${CSV_FILES[-1]}")"
           for cf in backtest-core.js divergence-detector.js run-backtest.js; do
-            [ -f "$cf" ] && echo "   ✅ $cf" || { echo "   ❌ $cf MISSING"; exit 1; }
+            [ -f "$cf" ] || { echo "❌ $cf MISSING"; exit 1; }
           done
-          echo ""
-          echo "🧠 Strategy: strategies/${{ matrix.strategy_file }}"
-          [ -f "strategies/${{ matrix.strategy_file }}" ] || { echo "   ❌ MISSING"; exit 1; }
-          echo "✅ All health checks passed."
+          echo "✅ All checks passed."
 
-      - name: 5. Run backtest for single file
+      - name: 5. Run backtest (1 file)
         continue-on-error: true
         run: |
-          END=${{ matrix.chunk }}
+          END=$(( ${{ matrix.chunk }} ))
           node run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
@@ -457,31 +373,13 @@ jobs:
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
-      - name: 🩺 6. Post‑flight Diagnostics
-        if: always()
-        run: |
-          STRAT="${{ matrix.strategy_file }}"
-          START=${{ matrix.chunk }}
-          END=${{ matrix.chunk }}
-          RES_DIR="results/${STRAT}/chunk_${START}_${END}"
-          if [ -d "$RES_DIR" ]; then
-            echo "✅ $RES_DIR exists"
-            ls -la "$RES_DIR"
-          else
-            echo "❌ Result directory missing. Debug:"
-            echo "   results/ exists? $([ -d results ] && echo yes || echo no)"
-            echo "   write test: $(touch test_write 2>/dev/null && rm test_write && echo ok || echo fail)"
-            find . -name "results.enc" 2>/dev/null || echo "   no results.enc found"
-          fi
-
-      - name: 7. Commit and push results
+      - name: 6. Commit result
         if: always()
         run: |
           if find results -name "results.enc" -print -quit | grep -q .; then
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add results/
-            git commit -m "backtest chunk ${{ matrix.chunk }} for ${{ matrix.strategy_file }}" || true
-            git pull --rebase
-            git push
+            git commit -m "backtest ${{ matrix.strategy_file }} chunk ${{ matrix.chunk }}" || true
+            git pull --rebase && git push
           fi
