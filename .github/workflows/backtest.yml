@@ -366,7 +366,8 @@ jobs:
           node run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
-            --end-index $END
+            --end-index $END \
+            --data-dir data/All_Coins_Combined
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
