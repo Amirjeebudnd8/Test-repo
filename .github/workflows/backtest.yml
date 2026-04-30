@@ -14,9 +14,6 @@ on:
   workflow_dispatch:
 
 jobs:
-  # ------------------------------------------------------------
-  #  Job: Idempotency – only run if results are incomplete
-  # ------------------------------------------------------------
   check-completion:
     runs-on: ubuntu-latest
     outputs:
@@ -31,10 +28,10 @@ jobs:
         id: check
         run: |
           ALL_COMPLETED=true
-          if [ -d strategies ] && [ "$(ls -A strategies/*.js 2>/dev/null)" ]; then
+          if [ -d strategies ] && find strategies -maxdepth 1 -name "*.js" -print -quit | grep -q .; then
             for strategy in strategies/*.js; do
               strat_name="$(basename "$strategy" .js)"
-              if ! find results -path "results/${strat_name}/chunk_*/results.enc" -print -quit 2>/dev/null | grep -q .; then
+              if ! find results -path "results/${strat_name}/chunk_*/results.enc" -print -quit | grep -q .; then
                 ALL_COMPLETED=false
                 break
               fi
@@ -42,9 +39,6 @@ jobs:
           fi
           echo "all_completed=$ALL_COMPLETED" >> $GITHUB_OUTPUT
 
-  # ------------------------------------------------------------
-  #  Job 1: prepare data & source encryption
-  # ------------------------------------------------------------
   prepare:
     needs: check-completion
     if: needs.check-completion.outputs.all_completed != 'true'
@@ -54,12 +48,12 @@ jobs:
       strategies: ${{ steps.list_strategies.outputs.files }}
       chunks: ${{ steps.build_chunks.outputs.chunks }}
     steps:
-      - name: 1. Checkout repository
+      - name: Checkout repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 2. Cache ZIP files
+      - name: Cache ZIP files
         uses: actions/cache@v4
         with:
           path: zips
@@ -67,40 +61,55 @@ jobs:
           restore-keys: |
             zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-
 
-      - name: 3. Setup Python
+      - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: 4. Install Python deps
+      - name: Install Python deps
         run: pip install pandas requests
 
-      # ── Smart data preparation ──
-      - name: 5. Prepare market data (auto-detect 2025/2026 gap)
-        id: prep_data
+      # -------- مرحله‌ی جدید: باز کردن data.enc و تشخیص داده‌های قدیمی --------
+      - name: Decrypt existing data to check volume
+        id: check_data_volume
+        env:
+          DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
-          NEED_RUN=false
-          if [ ! -f encrypted_data/data.enc ]; then
-            NEED_RUN=true
-          else
-            # اگر data.enc هست، تعداد فایل‌های CSV داخل All_Coins_Combined را می‌شمریم
-            if [ -d data/All_Coins_Combined ]; then
-              CSV_COUNT=$(ls -1 data/All_Coins_Combined/*.csv 2>/dev/null | wc -l)
-            else
-              CSV_COUNT=0
-            fi
-            echo "csvexisting=$CSV_COUNT" >> $GITHUB_OUTPUT
-            if [ "$CSV_COUNT" -lt 1000 ]; then
-              NEED_RUN=true
-            fi
+          HAVE_DATA=false
+          if [ -f encrypted_data/data.enc ]; then
+            mkdir -p data
+            node -e "
+              const crypto=require('crypto'),fs=require('fs');
+              const pass=process.env.DATA_PASSWORD;
+              const data=fs.readFileSync('encrypted_data/data.enc');
+              const key=crypto.scryptSync(pass,'salt',32);
+              const iv=data.slice(0,16);
+              const enc=data.slice(16);
+              const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+              const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
+              fs.writeFileSync('data.tar.gz',dec);
+            "
+            tar -xzf data.tar.gz -C data
+            rm data.tar.gz
+            HAVE_DATA=true
           fi
-          echo "need_run=$NEED_RUN" >> $GITHUB_OUTPUT
-          if [ "$NEED_RUN" = true ]; then
-            python encrypted_data/prepare_data.py
+          echo "have_data=$HAVE_DATA" >> $GITHUB_OUTPUT
+          if [ -d data/All_Coins_Combined ]; then
+            CNT=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
+            echo "csv_count=$CNT" >> $GITHUB_OUTPUT
+          else
+            echo "csv_count=0" >> $GITHUB_OUTPUT
           fi
 
-      - name: 6. Rebuild data.enc (only if data changed)
-        if: steps.prep_data.outputs.need_run == 'true'
+      # -------- اجرای prepare_data.py فقط در صورت نیاز --------
+      - name: Prepare market data (only if needed)
+        id: prep_data
+        if: steps.check_data_volume.outputs.csv_count == '0' || steps.check_data_volume.outputs.csv_count < 1000
+        run: python encrypted_data/prepare_data.py
+
+      # -------- بازسازی data.enc فقط اگر اسکریپت اجرا شده باشد --------
+      - name: Rebuild data.enc after new data
+        if: steps.prep_data.conclusion == 'success'
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
@@ -119,7 +128,9 @@ jobs:
           "
           rm data.tar.gz
 
-      - name: 7. Decrypt data.enc (always)
+      # -------- همیشه data.enc را برای مراحل بعد باز می‌کنیم --------
+      - name: Ensure data is decrypted for next steps
+        if: steps.check_data_volume.outputs.have_data == 'true' || steps.prep_data.conclusion == 'success'
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
@@ -134,36 +145,19 @@ jobs:
             const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
             fs.writeFileSync('data.tar.gz',dec);
           "
-          mkdir -p data
           tar -xzf data.tar.gz -C data
           rm data.tar.gz
 
-      # ── Source encryption with content‑only wipe ──
-      - name: 8. Encrypt source files if needed
+      - name: Encrypt source files if needed
         id: enc_src
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
-          SRC_DIR="encrypted_data/src"
           if [ -f encrypted_data/src.enc ]; then
             echo "src_exists=true" >> $GITHUB_OUTPUT
-            # اگر src.enc هست ولی فایل‌های src/ محتوایی دارند، رمزنگاری دوباره انجام شود
-            if [ -d "$SRC_DIR" ] && [ -n "$(find "$SRC_DIR" -maxdepth 1 -type f ! -size 0)" ]; then
-              echo "src_exists=false" >> $GITHUB_OUTPUT
-            fi
           else
             echo "src_exists=false" >> $GITHUB_OUTPUT
-          fi
-        continue-on-error: true
-
-      - name: 9. Encrypt source (if needed)
-        if: steps.enc_src.outputs.src_exists != 'true'
-        env:
-          CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
-        run: |
-          SRC_DIR="encrypted_data/src"
-          if [ -d "$SRC_DIR" ]; then
-            tar -czf src.tar.gz -C "$SRC_DIR" .
+            tar -czf src.tar.gz -C encrypted_data/src .
             node -e "
               const crypto=require('crypto'),fs=require('fs');
               const pass=process.env.CODE_PASSWORD;
@@ -174,23 +168,23 @@ jobs:
               const enc=Buffer.concat([cipher.update(input),cipher.final()]);
               fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
             "
-            rm src.tar.gz
-          fi
-
-      - name: 10. Wipe source files content (never delete files)
-        if: steps.enc_src.outputs.src_exists != 'true'
-        run: |
-          SRC_DIR="encrypted_data/src"
-          if [ -d "$SRC_DIR" ]; then
-            for f in "$SRC_DIR"/*.js "$SRC_DIR"/*.py; do
-              [ -f "$f" ] && echo -n "" > "$f"
-            done
-            git add "$SRC_DIR/"
-            git commit -m "wipe source file contents after encryption" || true
+            rm -rf encrypted_data/src src.tar.gz
+            git add -A
+            git commit -m "encrypt source files" || true
             git push
           fi
 
-      - name: 11. Decrypt src.enc
+      - name: Wipe plaintext source files
+        if: steps.enc_src.outputs.src_exists != 'true'
+        run: |
+          for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
+            [ -f "$f" ] && echo -n "" > "$f"
+          done
+          git add encrypted_data/src/
+          git commit -m "wipe source files after encryption" || true
+          git push
+
+      - name: Decrypt src.enc
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
@@ -208,36 +202,31 @@ jobs:
           tar -xzf src.tar.gz
           rm src.tar.gz
 
-      - name: 12. Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: 13. Install Node deps
+      - name: Install Node deps
         run: npm install papaparse
 
-      - name: 14. List strategies
+      - name: List strategies
         id: list_strategies
         run: |
-          files=$(ls strategies/*.js 2>/dev/null | sed 's|strategies/||' | jq -R -s -c 'split("\n")[:-1]')
+          files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: 15. Build dynamic chunks
+      - name: Build dynamic chunks
         id: build_chunks
         run: |
-          cnt=$(ls data/All_Coins_Combined/*.csv 2>/dev/null | wc -l)
-          size=25
-          n=$(( (cnt + size - 1) / size ))
+          cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
+          size=25; n=$(( (cnt + size - 1) / size ))
           chunks="["
-          for ((i=0; i<n; i++)); do
-            s=$((i*size))
-            [ $i -gt 0 ] && chunks+=", "
-            chunks+="$s"
-          done
+          for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
-      - name: 16. Upload prepared artifact
+      - name: Upload prepared
         uses: actions/upload-artifact@v4
         with:
           name: prep
@@ -250,9 +239,6 @@ jobs:
             node_modules/
             package.json
 
-  # ------------------------------------------------------------
-  #  Job 2: Backtest with health checks
-  # ------------------------------------------------------------
   backtest:
     needs: [check-completion, prepare]
     if: needs.prepare.outputs.strategies != '[]' && needs.check-completion.outputs.all_completed != 'true'
@@ -265,89 +251,67 @@ jobs:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
         chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
     steps:
-      - name: 1. Checkout
+      - name: Checkout
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 2. Download prepared artifact
+      - name: Download prepared
         uses: actions/download-artifact@v4
         with:
           name: prep
 
-      - name: 3. Setup Node.js
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      # ── Enhanced Pre‑flight Health Check (no pipes) ──
-      - name: 🩺 4. Pre‑flight Health Check
+      # -------- سلامت‌سنجی بدون Broken pipe --------
+      - name: 🩺 Pre‑flight Health Check
+        shell: bash
         run: |
+          set +e
           echo "=============================================="
           echo "   📊 PRE‑FLIGHT HEALTH REPORT"
           echo "=============================================="
-          echo ""
-
-          # 1. Data directory
           DATA_DIR="data/All_Coins_Combined"
           if [ ! -d "$DATA_DIR" ]; then
-            echo "❌ FATAL: Data directory '$DATA_DIR' not found."
+            echo "❌ FATAL: Data directory missing."
             exit 1
           fi
 
-          CSV_FILES=("$DATA_DIR"/*.csv)
-          if [ ! -e "${CSV_FILES[0]}" ]; then
-            echo "❌ FATAL: No CSV files found in '$DATA_DIR'."
-            exit 1
-          fi
-
+          # شمارش فایل‌ها با find (بدون ls و pipe)
+          mapfile -t CSV_FILES < <(find "$DATA_DIR" -maxdepth 1 -name "*.csv" -print0 | xargs -0 ls -1 2>/dev/null)
           FILE_COUNT=${#CSV_FILES[@]}
           echo "✅ Data directory: $DATA_DIR"
           echo "   Total CSV files: $FILE_COUNT"
 
-          FIRST=$(basename "${CSV_FILES[0]}")
-          LAST=$(basename "${CSV_FILES[-1]}")
-          echo "   First file: $FIRST"
-          echo "   Last file : $LAST"
-
-          HIGH=0
-          for f in "${CSV_FILES[@]}"; do
-            LINES=$(wc -l < "$f")
-            [ "$LINES" -gt 2500 ] && ((HIGH++))
-          done
-          echo "   Files with >2500 candles: $HIGH"
-          echo ""
-
-          # 2. Core JS files
-          echo "⚙️  Core JS files:"
-          for f in backtest-core.js divergence-detector.js run-backtest.js; do
-            if [ -f "$f" ]; then
-              echo "   ✅ $f ($(wc -c < "$f") bytes)"
-            else
-              echo "   ❌ $f MISSING"
-              exit 1
-            fi
-          done
-          echo ""
-
-          # 3. Strategy file
-          STRAT_PATH="strategies/${{ matrix.strategy_file }}"
-          if [ -f "$STRAT_PATH" ]; then
-            echo "🧠 Strategy: $STRAT_PATH ($(wc -c < "$STRAT_PATH") bytes)"
-          else
-            echo "❌ Strategy file not found: $STRAT_PATH"
-            exit 1
+          if [ "$FILE_COUNT" -gt 0 ]; then
+            FIRST=$(basename "${CSV_FILES[0]}")
+            LAST=$(basename "${CSV_FILES[-1]}")
+            echo "   First file: $FIRST"
+            echo "   Last file : $LAST"
+            HIGH=0
+            for f in "${CSV_FILES[@]}"; do
+              LINES=$(wc -l < "$f") && [ "$LINES" -gt 2500 ] && ((HIGH++))
+            done
+            echo "   Files with >2500 candles: $HIGH"
           fi
 
           echo ""
-          echo "✅ Pre‑flight checks passed. Starting backtest..."
-        shell: bash
+          echo "⚙️  Core JS files:"
+          for cf in backtest-core.js divergence-detector.js run-backtest.js; do
+            [ -f "$cf" ] && echo "   ✅ $cf" || { echo "   ❌ $cf MISSING"; exit 1; }
+          done
+          echo ""
+          echo "🧠 Strategy: strategies/${{ matrix.strategy_file }}"
+          [ -f "strategies/${{ matrix.strategy_file }}" ] || { echo "   ❌ MISSING"; exit 1; }
+          echo "✅ All health checks passed."
 
-      - name: 5. Run backtest for chunk
+      - name: Run backtest for chunk
         continue-on-error: true
         run: |
           END=$(( ${{ matrix.chunk }} + 24 ))
-          echo "🚀 Backtest params: strategy=${{ matrix.strategy_file }} chunk=${{ matrix.chunk }}-$END"
           node run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
@@ -355,56 +319,31 @@ jobs:
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
-      # ── Enhanced Post‑flight Debugging ──
-      - name: 🩺 6. Post‑flight Diagnostics
+      - name: Post‑flight Diagnostics
         if: always()
         run: |
-          echo ""
-          echo "=============================================="
-          echo "   🔍 POST‑FLIGHT DIAGNOSTICS"
-          echo "=============================================="
           STRAT="${{ matrix.strategy_file }}"
           START=${{ matrix.chunk }}
           END=$(( ${{ matrix.chunk }} + 24 ))
           RES_DIR="results/${STRAT}/chunk_${START}_${END}"
-
           if [ -d "$RES_DIR" ]; then
-            echo "✅ Result directory exists: $RES_DIR"
-            ls -laR "$RES_DIR"
-            if [ -f "$RES_DIR/results.enc" ]; then
-              echo "✅ results.enc found ($(wc -c < "$RES_DIR/results.enc") bytes)"
-            else
-              echo "⚠️ results.enc not found inside $RES_DIR"
-            fi
+            echo "✅ $RES_DIR exists"
+            ls -la "$RES_DIR"
           else
-            echo "❌ Result directory MISSING: $RES_DIR"
-            echo "   Debugging possible causes:"
-            echo "   - Parent 'results' exists? $([ -d results ] && echo YES || echo NO)"
-            echo "   - Job status: ${{ job.status }}"
-            echo "   - Write permission test:"
-            if touch test_write 2>/dev/null; then
-              echo "      ✅ write allowed"
-              rm test_write
-            else
-              echo "      ❌ write denied"
-            fi
-            echo "   - Searching entire workspace for results.enc:"
-            find . -name "results.enc" -type f 2>/dev/null || echo "      (none found)"
-            echo "   - Any 'results' folders:"
-            find . -name results -type d 2>/dev/null || echo "      (none)"
+            echo "❌ Result directory missing. Debug:"
+            echo "   results/ exists? $([ -d results ] && echo yes || echo no)"
+            echo "   write test: $(touch test_write 2>/dev/null && rm test_write && echo ok || echo fail)"
+            find . -name "results.enc" 2>/dev/null || echo "   no results.enc found"
           fi
-        shell: bash
 
-      - name: 7. Commit & push results
+      - name: Commit and push results
         if: always()
         run: |
-          if find results -name "results.enc" -type f -print -quit | grep -q .; then
+          if find results -name "results.enc" -print -quit | grep -q .; then
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add results/
             git commit -m "backtest chunk ${{ matrix.chunk }} for ${{ matrix.strategy_file }}" || true
             git pull --rebase
             git push
-          else
-            echo "No results.enc found, nothing to push."
           fi
