@@ -69,22 +69,13 @@ jobs:
         run: pip install pandas requests
 
       # ------------------------------------------------------------
-      #  🆕 گام جدید: ساخت خودکار پوشه src و فایل unlock.txt
+      #  🆕 گام صفر: فقط پوشه را بسازد (بدون فایل اضافی)
       # ------------------------------------------------------------
-      - name: 0. Auto-create src folder and unlock.txt
-        id: auto_unlock
-        run: |
-          mkdir -p encrypted_data/src
-          UNLOCK_FILE="encrypted_data/src/unlock.txt"
-          if [ ! -f "$UNLOCK_FILE" ]; then
-            echo "1" > "$UNLOCK_FILE"
-            echo "🆕 فایل unlock.txt با مقدار 1 ساخته شد."
-          else
-            echo "✅ فایل unlock.txt از قبل وجود دارد."
-          fi
+      - name: 0. Ensure src folder exists
+        run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  🔓 مکانیزم Unlock (اصلاح‌شده نهایی)
+      #  🔓 مکانیزم Unlock
       # ------------------------------------------------------------
       - name: 🔓 Check for unlock request
         id: unlock
@@ -121,19 +112,12 @@ jobs:
 
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
-
-            # اضافه کردن فایل‌های جدید (بدون خطای fatal)
             git add encrypted_data/src/*.js encrypted_data/src/.unlocked.flag 2>/dev/null || true
-
-            # حذف فایل unlock.txt از گیت
             git rm --cached "$UNLOCK_FILE" 2>/dev/null || rm -f "$UNLOCK_FILE"
-
             git commit -m "unlock source files" || true
-
             git stash --include-untracked 2>/dev/null || true
             git pull --rebase
             git stash pop 2>/dev/null || true
-
             git push
           else
             echo "🔒 حالت عادی. فایل unlock.txt با مقدار '1' یافت نشد."
@@ -242,13 +226,16 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
-          git pull --rebase
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
             [ -f "$f" ] && echo -n "" > "$f"
           done
           rm -f encrypted_data/src/.unlocked.flag
           git add encrypted_data/src/
           git commit -m "wipe source file contents" || true
+          # جلوگیری از خطای unstaged changes
+          git stash --include-untracked 2>/dev/null || true
+          git pull --rebase
+          git stash pop 2>/dev/null || true
           git push
 
       # ------------------------------------------------------------
