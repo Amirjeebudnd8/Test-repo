@@ -274,6 +274,9 @@ jobs:
           rm -f encrypted_data/src/.unlocked.flag
           git add encrypted_data/src/ encrypted_data/src.enc
           git commit -m "wipe source files and update src.enc" || true
+          # حل خودکار conflict برای فایل‌های باینری (قبول نسخه‌ی local)
+          git config merge.ours.driver true
+          echo '*.enc merge=ours' >> .gitattributes
           git stash --include-untracked 2>/dev/null || true
           git pull --rebase
           git stash pop 2>/dev/null || true
