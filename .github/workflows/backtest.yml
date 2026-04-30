@@ -75,16 +75,58 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  🔓 مکانیزم Unlock
+      #  🔓 مکانیزم Unlock (جدید: پشتیبانی از عدد ۳ برای استخراج نتایج)
       # ------------------------------------------------------------
       - name: 🔓 Check for unlock request
         id: unlock
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
+          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
         run: |
           echo "unlocked=false" >> $GITHUB_OUTPUT
           UNLOCK_FILE="encrypted_data/src/unlock.txt"
-          if [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
+
+          # ============================================================
+          # [۱] حالت عدد ۳ : استخراج تمام نتایج (results.enc)
+          # ============================================================
+          if [ -f "$UNLOCK_FILE" ] && grep -q "^3$" "$UNLOCK_FILE"; then
+            echo "📊 درخواست استخراج نتایج (عدد ۳) شناسایی شد."
+
+            find results -name "results.enc" -type f | while read ENC; do
+              echo "  ⚙️  استخراج: $ENC"
+              DIR=$(dirname "$ENC")
+              node -e "
+                const crypto=require('crypto'),fs=require('fs'),path=require('path');
+                const pass=process.env.RESULTS_PASSWORD;
+                const data=fs.readFileSync('${ENC}');
+                const key=crypto.scryptSync(pass,'salt',32);
+                const iv=data.slice(0,16);
+                const enc=data.slice(16);
+                const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+                const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
+                const tarPath='${DIR}/results.tar.gz';
+                fs.writeFileSync(tarPath,dec);
+              "
+              tar -xzf "$DIR/results.tar.gz" -C "$DIR"
+              rm -f "$DIR/results.tar.gz"
+            done
+
+            # ثبت تغییرات و push
+            git config user.name "github-actions[bot]"
+            git config user.email "actions@github.com"
+            git add results/
+            git commit -m "extract all results (unlock 3)" || true
+            git stash --include-untracked 2>/dev/null || true
+            git pull --rebase
+            git stash pop 2>/dev/null || true
+            git push
+
+            rm -f "$UNLOCK_FILE"
+
+          # ============================================================
+          # [۲] حالت عدد ۱ : استخراج سورس‌ها (مثل قبل)
+          # ============================================================
+          elif [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
             echo "🔓 باز کردن قفل..."
             echo "unlocked=true" >> $GITHUB_OUTPUT
 
@@ -119,8 +161,9 @@ jobs:
             git pull --rebase
             git stash pop 2>/dev/null || true
             git push
+
           else
-            echo "🔒 حالت عادی. فایل unlock.txt با مقدار '1' یافت نشد."
+            echo "🔒 حالت عادی. فایل unlock.txt با مقدار '1' یا '3' یافت نشد."
           fi
 
       # ------------------------------------------------------------
@@ -213,7 +256,6 @@ jobs:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
           if [ "${{ steps.source_analysis.outputs.all_full }}" = "true" ]; then
-            # همه فایل‌ها پر هستند – رمزنگاری ساده
             tar -czf src.tar.gz -C encrypted_data/src .
             node -e "
               const crypto=require('crypto'),fs=require('fs');
@@ -227,7 +269,6 @@ jobs:
             "
             rm src.tar.gz
           else
-            # فقط یک یا چند فایل پر هستند – ادغام با نسخه‌ی قبلی
             mkdir -p temp_merge
             if [ -f encrypted_data/src.enc ]; then
               node -e "
@@ -244,11 +285,9 @@ jobs:
               tar -xzf src_old.tar.gz -C temp_merge
               rm src_old.tar.gz
             fi
-            # جایگزینی فایل‌های جدید (غیر خالی) روی نسخه‌ی قدیمی
             for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
               [ -f "$f" ] && [ -s "$f" ] && cp "$f" temp_merge/
             done
-            # رمزنگاری پوشه‌ی ادغام‌شده
             tar -czf src.tar.gz -C temp_merge .
             node -e "
               const crypto=require('crypto'),fs=require('fs');
@@ -274,7 +313,6 @@ jobs:
           rm -f encrypted_data/src/.unlocked.flag
           git add encrypted_data/src/ encrypted_data/src.enc
           git commit -m "wipe source files and update src.enc" || true
-          # حل خودکار conflict برای فایل‌های باینری (قبول نسخه‌ی local)
           git config merge.ours.driver true
           echo '*.enc merge=ours' >> .gitattributes
           git stash --include-untracked 2>/dev/null || true
@@ -316,10 +354,15 @@ jobs:
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: 17. Build dynamic chunks (DEBUG – only 1 file)
+      - name: 17. Build dynamic chunks
         id: build_chunks
         run: |
-          echo "chunks=[0]" >> $GITHUB_OUTPUT
+          cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
+          size=25; n=$(( (cnt + size - 1) / size ))
+          chunks="["
+          for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done
+          chunks+="]"
+          echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
       - name: 18. Upload prepared environment
         uses: actions/upload-artifact@v4
@@ -398,10 +441,10 @@ jobs:
           [ -f "strategies/${{ matrix.strategy_file }}" ] || { echo "   ❌ MISSING"; exit 1; }
           echo "✅ All health checks passed."
 
-      - name: 5. Run backtest for chunk (DEBUG – only 1 file)
+      - name: 5. Run backtest for chunk
         continue-on-error: true
         run: |
-          END=${{ matrix.chunk }}
+          END=$(( ${{ matrix.chunk }} + 24 ))
           node run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
