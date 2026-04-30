@@ -80,18 +80,18 @@ jobs:
 
             # ساخت فایل رمزگشایی نتایج
             cat << 'NODEEOF' > /tmp/dec_results.js
-          const crypto = require('crypto'), fs = require('fs');
-          const pass = process.env.RESULTS_PASSWORD;
-          const encFile = process.env.ENC_FILE;
-          const outDir  = process.env.OUT_DIR;
-          const data = fs.readFileSync(encFile);
-          const key = crypto.scryptSync(pass, 'salt', 32);
-          const iv = data.slice(0, 16);
-          const enc = data.slice(16);
-          const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-          const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
-          fs.writeFileSync(outDir + '/results.tar.gz', dec);
-        NODEEOF
+const crypto = require('crypto'), fs = require('fs');
+const pass = process.env.RESULTS_PASSWORD;
+const encFile = process.env.ENC_FILE;
+const outDir  = process.env.OUT_DIR;
+const data = fs.readFileSync(encFile);
+const key = crypto.scryptSync(pass, 'salt', 32);
+const iv = data.slice(0, 16);
+const enc = data.slice(16);
+const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
+fs.writeFileSync(outDir + '/results.tar.gz', dec);
+NODEEOF
 
             find results -name "results.enc" -type f | while read ENC; do
               DIR=$(dirname "$ENC")
@@ -118,16 +118,16 @@ jobs:
 
               # ساخت فایل رمزگشایی سورس
               cat << 'NODEEOF' > /tmp/dec_src.js
-            const crypto = require('crypto'), fs = require('fs');
-            const pass = process.env.CODE_PASSWORD;
-            const data = fs.readFileSync('encrypted_data/src.enc');
-            const key = crypto.scryptSync(pass, 'salt', 32);
-            const iv = data.slice(0, 16);
-            const enc = data.slice(16);
-            const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-            const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
-            fs.writeFileSync('src.tar.gz', dec);
-          NODEEOF
+const crypto = require('crypto'), fs = require('fs');
+const pass = process.env.CODE_PASSWORD;
+const data = fs.readFileSync('encrypted_data/src.enc');
+const key = crypto.scryptSync(pass, 'salt', 32);
+const iv = data.slice(0, 16);
+const enc = data.slice(16);
+const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
+fs.writeFileSync('src.tar.gz', dec);
+NODEEOF
               node /tmp/dec_src.js
 
               tar -xzf src.tar.gz -C temp_src_restore
@@ -191,16 +191,16 @@ jobs:
         run: |
           if [ -f encrypted_data/data.enc ]; then
             cat << 'NODEEOF' > /tmp/dec_data.js
-          const crypto = require('crypto'), fs = require('fs');
-          const pass = process.env.DATA_PASSWORD;
-          const data = fs.readFileSync('encrypted_data/data.enc');
-          const key = crypto.scryptSync(pass, 'salt', 32);
-          const iv = data.slice(0, 16);
-          const enc = data.slice(16);
-          const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-          const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
-          fs.writeFileSync('data.tar.gz', dec);
-        NODEEOF
+const crypto = require('crypto'), fs = require('fs');
+const pass = process.env.DATA_PASSWORD;
+const data = fs.readFileSync('encrypted_data/data.enc');
+const key = crypto.scryptSync(pass, 'salt', 32);
+const iv = data.slice(0, 16);
+const enc = data.slice(16);
+const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
+fs.writeFileSync('data.tar.gz', dec);
+NODEEOF
             node /tmp/dec_data.js
             mkdir -p data && tar -xzf data.tar.gz -C data && rm data.tar.gz
           fi
@@ -212,15 +212,15 @@ jobs:
           cd data && tar -czf ../data.tar.gz All_Coins_Combined && cd ..
 
           cat << 'NODEEOF' > /tmp/enc_data.js
-        const crypto = require('crypto'), fs = require('fs');
-        const pass = process.env.DATA_PASSWORD;
-        const key = crypto.scryptSync(pass, 'salt', 32);
-        const iv = crypto.randomBytes(16);
-        const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-        const input = fs.readFileSync('data.tar.gz');
-        const enc = Buffer.concat([cipher.update(input), cipher.final()]);
-        fs.writeFileSync('encrypted_data/data.enc', Buffer.concat([iv, enc]));
-      NODEEOF
+const crypto = require('crypto'), fs = require('fs');
+const pass = process.env.DATA_PASSWORD;
+const key = crypto.scryptSync(pass, 'salt', 32);
+const iv = crypto.randomBytes(16);
+const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+const input = fs.readFileSync('data.tar.gz');
+const enc = Buffer.concat([cipher.update(input), cipher.final()]);
+fs.writeFileSync('encrypted_data/data.enc', Buffer.concat([iv, enc]));
+NODEEOF
           node /tmp/enc_data.js
           rm data.tar.gz
 
@@ -247,16 +247,16 @@ jobs:
             mkdir -p temp_merge
             if [ -f encrypted_data/src.enc ]; then
               cat << 'NODEEOF' > /tmp/dec_src_old.js
-            const crypto = require('crypto'), fs = require('fs');
-            const pass = process.env.CODE_PASSWORD;
-            const data = fs.readFileSync('encrypted_data/src.enc');
-            const key = crypto.scryptSync(pass, 'salt', 32);
-            const iv = data.slice(0, 16);
-            const enc = data.slice(16);
-            const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-            const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
-            fs.writeFileSync('src_old.tar.gz', dec);
-          NODEEOF
+const crypto = require('crypto'), fs = require('fs');
+const pass = process.env.CODE_PASSWORD;
+const data = fs.readFileSync('encrypted_data/src.enc');
+const key = crypto.scryptSync(pass, 'salt', 32);
+const iv = data.slice(0, 16);
+const enc = data.slice(16);
+const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
+fs.writeFileSync('src_old.tar.gz', dec);
+NODEEOF
               node /tmp/dec_src_old.js
               tar -xzf src_old.tar.gz -C temp_merge; rm src_old.tar.gz
             fi
@@ -268,15 +268,15 @@ jobs:
           fi
 
           cat << 'NODEEOF' > /tmp/enc_src.js
-        const crypto = require('crypto'), fs = require('fs');
-        const pass = process.env.CODE_PASSWORD;
-        const key = crypto.scryptSync(pass, 'salt', 32);
-        const iv = crypto.randomBytes(16);
-        const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-        const input = fs.readFileSync('src.tar.gz');
-        const enc = Buffer.concat([cipher.update(input), cipher.final()]);
-        fs.writeFileSync('encrypted_data/src.enc', Buffer.concat([iv, enc]));
-      NODEEOF
+const crypto = require('crypto'), fs = require('fs');
+const pass = process.env.CODE_PASSWORD;
+const key = crypto.scryptSync(pass, 'salt', 32);
+const iv = crypto.randomBytes(16);
+const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
+const input = fs.readFileSync('src.tar.gz');
+const enc = Buffer.concat([cipher.update(input), cipher.final()]);
+fs.writeFileSync('encrypted_data/src.enc', Buffer.concat([iv, enc]));
+NODEEOF
           node /tmp/enc_src.js
           rm src.tar.gz
 
@@ -304,16 +304,16 @@ jobs:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
           cat << 'NODEEOF' > /tmp/dec_src_final.js
-        const crypto = require('crypto'), fs = require('fs');
-        const pass = process.env.CODE_PASSWORD;
-        const data = fs.readFileSync('encrypted_data/src.enc');
-        const key = crypto.scryptSync(pass, 'salt', 32);
-        const iv = data.slice(0, 16);
-        const enc = data.slice(16);
-        const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
-        const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
-        fs.writeFileSync('src.tar.gz', dec);
-      NODEEOF
+const crypto = require('crypto'), fs = require('fs');
+const pass = process.env.CODE_PASSWORD;
+const data = fs.readFileSync('encrypted_data/src.enc');
+const key = crypto.scryptSync(pass, 'salt', 32);
+const iv = data.slice(0, 16);
+const enc = data.slice(16);
+const decipher = crypto.createDecipheriv('aes-256-cbc', key, iv);
+const dec = Buffer.concat([decipher.update(enc), decipher.final()]);
+fs.writeFileSync('src.tar.gz', dec);
+NODEEOF
           node /tmp/dec_src_final.js
           tar -xzf src.tar.gz && rm src.tar.gz
 
