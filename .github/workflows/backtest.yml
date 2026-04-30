@@ -15,7 +15,7 @@ on:
 
 jobs:
   # ============================================================
-  #  Job: Idempotency (موقتاً غیرفعال شده – همیشه false)
+  #  Job: Idempotency (موقتاً غیرفعال شده)
   # ============================================================
   check-completion:
     runs-on: ubuntu-latest
@@ -29,7 +29,7 @@ jobs:
       - name: Check if all results already exist
         id: check
         run: |
-          # فعلاً همیشه false برگردان تا بک‌تست در هر اجرا تکرار شود
+          # موقتاً غیرفعال – همیشه false برگردان
           echo "all_completed=false" >> $GITHUB_OUTPUT
 
   prepare:
@@ -40,7 +40,6 @@ jobs:
     outputs:
       strategies: ${{ steps.list_strategies.outputs.files }}
       chunks:   ${{ steps.build_chunks.outputs.chunks }}
-      filenames: ${{ steps.build_chunks.outputs.filenames }}
     steps:
       - name: 1. Checkout repository
         uses: actions/checkout@v5
@@ -70,9 +69,9 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  🔓 مکانیزم Unlock (جدید: پشتیبانی از عدد ۳ برای استخراج نتایج)
+      #  🔓 مکانیزم Unlock (1 = سورس, 3 = نتایج)
       # ------------------------------------------------------------
-      - name: 🔓 Check for unlock request (1 = source, 3 = results)
+      - name: 🔓 Check for unlock request
         id: unlock
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
@@ -81,9 +80,7 @@ jobs:
           echo "unlocked=false" >> $GITHUB_OUTPUT
           UNLOCK_FILE="encrypted_data/src/unlock.txt"
 
-          # ============================================================
-          # [۳] حالت عدد ۳ : استخراج تمام نتایج (results.enc)
-          # ============================================================
+          # [۳] حالت عدد ۳ : استخراج تمام نتایج
           if [ -f "$UNLOCK_FILE" ] && grep -q "^3$" "$UNLOCK_FILE"; then
             echo "📊 درخواست استخراج نتایج (عدد ۳) شناسایی شد."
 
@@ -118,9 +115,7 @@ jobs:
 
             rm -f "$UNLOCK_FILE"
 
-          # ============================================================
-          # [۱] حالت عدد ۱ : استخراج سورس‌ها (مثل قبل)
-          # ============================================================
+          # [۱] حالت عدد ۱ : استخراج سورس‌ها
           elif [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
             echo "🔓 باز کردن قفل (سورس)..."
             echo "unlocked=true" >> $GITHUB_OUTPUT
@@ -158,16 +153,14 @@ jobs:
             git push
 
           else
-            # ============================================================
-            #  پاک‌سازی فایل‌های JSON قدیمی (اگر unlock.txt ≠ 3)
-            # ============================================================
-            echo "🧹 پاک‌سازی فایل‌های استخراج‌شده از نتایج (unlock.txt != 3)..."
+            # پاک‌سازی فایل‌های JSON استخراج‌شده (اگر unlock ≠ 3)
+            echo "🧹 پاک‌سازی فایل‌های استخراج‌شده از نتایج ..."
             find results -type f ! -name "results.enc" \( -name "*.json" -o -name "*.tar.gz" \) -delete
             if find results -type f ! -name "results.enc" | grep -q .; then
               git config user.name "github-actions[bot]"
               git config user.email "actions@github.com"
               git add results/
-              git commit -m "cleanup extracted result files (unlock != 3)" || true
+              git commit -m "cleanup extracted result files" || true
               git stash --include-untracked 2>/dev/null || true
               git pull --rebase
               git stash pop 2>/dev/null || true
@@ -364,24 +357,19 @@ jobs:
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: 17. Build file list and chunks
+      # ------------------------------------------------------------
+      #  ساختن چانک‌های هوشمند (موقتاً محدود به ۲ فایل)
+      # ------------------------------------------------------------
+      - name: 17. Build dynamic chunks
         id: build_chunks
         run: |
-          DATA_DIR="data/All_Coins_Combined"
-          # ساخت لیست نام فایل‌ها
-          FILENAMES=$(find "$DATA_DIR" -maxdepth 1 -name "*.csv" -exec basename {} \; | sort | jq -R -s -c 'split("\n")[:-1]')
-          echo "filenames=$FILENAMES" >> $GITHUB_OUTPUT
-
-          # ساخت ایندکس‌ها (هر فایل یک ایندکس جداگانه)
-          cnt=$(echo "$FILENAMES" | jq 'length')
+          cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
+          cnt=2                     # ← موقتاً فقط ۲ فایل اول
+          size=1; n=$(( (cnt + size - 1) / size ))
           chunks="["
-          for ((i=0; i<cnt; i++)); do
-            [ $i -gt 0 ] && chunks+=", "
-            chunks+="$i"
-          done
+          for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
-          echo "Total files: $cnt"
 
       - name: 18. Upload prepared environment
         uses: actions/upload-artifact@v4
@@ -407,7 +395,6 @@ jobs:
       matrix:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
         chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
-        filename: ${{ fromJson(needs.prepare.outputs.filenames) }}
     steps:
       - name: 1. Checkout repository
         uses: actions/checkout@v5
@@ -447,7 +434,7 @@ jobs:
             echo "   Last file : $LAST"
           fi
           echo ""
-          echo "Current job: strategy=${{ matrix.strategy_file }}, file=${{ matrix.filename }}"
+          echo "Current job: strategy=${{ matrix.strategy_file }}, chunk=${{ matrix.chunk }}"
           echo ""
           echo "⚙️  Core JS files:"
           for cf in backtest-core.js divergence-detector.js run-backtest.js; do
@@ -461,9 +448,11 @@ jobs:
       - name: 5. Run backtest for single file
         continue-on-error: true
         run: |
+          END=${{ matrix.chunk }}
           node run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
-            --single-file "${{ matrix.filename }}" \
+            --start-index ${{ matrix.chunk }} \
+            --end-index $END \
             --data-dir data/All_Coins_Combined
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
@@ -472,8 +461,9 @@ jobs:
         if: always()
         run: |
           STRAT="${{ matrix.strategy_file }}"
-          FILE_NAME="${{ matrix.filename }}"
-          RES_DIR="results/${STRAT}/${FILE_NAME}"
+          START=${{ matrix.chunk }}
+          END=${{ matrix.chunk }}
+          RES_DIR="results/${STRAT}/chunk_${START}_${END}"
           if [ -d "$RES_DIR" ]; then
             echo "✅ $RES_DIR exists"
             ls -la "$RES_DIR"
@@ -491,7 +481,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add results/
-            git commit -m "backtest ${{ matrix.filename }} for ${{ matrix.strategy_file }}" || true
+            git commit -m "backtest chunk ${{ matrix.chunk }} for ${{ matrix.strategy_file }}" || true
             git pull --rebase
             git push
           fi
