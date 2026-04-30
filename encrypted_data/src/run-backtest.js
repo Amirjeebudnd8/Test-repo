@@ -12,8 +12,8 @@ const getArg = (name) => {
 
 const strategyFile = getArg('--strategy-file');
 const startChunk = parseInt(getArg('--start-index') || '0');
-const endChunk = parseInt(getArg('--end-index') || '24');
-const dataDir = getArg('--data-dir') || path.join(__dirname, 'data');
+const endChunk   = parseInt(getArg('--end-index') || '24');
+const dataDir    = getArg('--data-dir') || path.join(__dirname, 'data');
 
 if (!strategyFile || !fs.existsSync(strategyFile)) {
   console.log('ℹ️  فایل استراتژی وجود ندارد.');
@@ -23,21 +23,74 @@ if (!strategyFile || !fs.existsSync(strategyFile)) {
 const strategyName = path.basename(strategyFile, '.js');
 const outputDir = path.join(__dirname, 'results', strategyName, `chunk_${startChunk}_${endChunk}`);
 
-// اگر پوشه وجود داشت، کار تمام است
+// اگر پوشه نتایج از قبل وجود داشت، کار تمام است
 if (fs.existsSync(path.join(outputDir, 'results.enc'))) {
   console.log(`⏩ چانک ${startChunk} تا ${endChunk} قبلاً انجام شده. رد شد.`);
   process.exit(0);
 }
 
 // ==================== بخش روند شارپ (همان script.js) ====================
-const SHARP = { minCandlesRequired: 5, consecutiveCandles: 5, minPercentChange: 0.5, maxLookback: 2500, enableOppositeCandleRule: true, boxValidityHours: 72, useFixedDuration: true, breakThresholdPercent: 10.0 };
+const SHARP = {
+  minCandlesRequired: 5,
+  consecutiveCandles: 5,
+  minPercentChange: 0.5,
+  maxLookback: 2500,
+  enableOppositeCandleRule: true,
+  boxValidityHours: 72,
+  useFixedDuration: true,
+  breakThresholdPercent: 10.0
+};
 
 function candleColor(c) { return c.close > c.open ? 'bullish' : 'bearish'; }
 
 function detectSequenceFromPosition(startIdx, data, config) {
   if (startIdx >= data.length) return null;
-  // ... (کد کامل بدون تغییر از پاسخ‌های قبلی، جهت اختصار حذف شد)
-  // این بخش باید دقیقاً همان کد قبلی باشد.
+  const s = data[startIdx];
+  const trend = candleColor(s);
+  let endIdx = startIdx, lastSame = startIdx, oppCnt = 0;
+  const max = Math.min(startIdx + config.maxLookback * 2, data.length - 1);
+
+  for (let i = startIdx + 1; i <= max; i++) {
+    const c = data[i];
+    if (candleColor(c) === trend) {
+      endIdx = i; lastSame = i;
+    } else {
+      if (config.enableOppositeCandleRule) {
+        const prev = data[lastSame];
+        if (trend === 'bullish') {
+          if (c.low >= prev.low) { oppCnt++; continue; }
+        } else {
+          if (c.high <= prev.high) { oppCnt++; continue; }
+        }
+      }
+      break;
+    }
+  }
+
+  const len = (endIdx - startIdx + 1) - oppCnt;
+  if (len < config.minCandlesRequired) return null;
+
+  const e = data[endIdx];
+  const pct = ((e.close - s.open) / s.open) * 100;
+  if (Math.abs(pct) < config.minPercentChange) return null;
+
+  let hh = s.high, ll = s.low;
+  for (let i = startIdx; i <= endIdx; i++) {
+    if (candleColor(data[i]) === trend ||
+        (config.enableOppositeCandleRule && i > startIdx && candleColor(data[i]) !== trend)) {
+      hh = Math.max(hh, data[i].high);
+      ll = Math.min(ll, data[i].low);
+    }
+  }
+
+  const startTime = new Date(s.timestamp.getTime());
+  const endTime  = new Date(startTime.getTime() + config.boxValidityHours * 3600000);
+  return [
+    { id: `s_${startIdx}`, candleIndex: startIdx, time1: startTime, time2: endTime, value1: s.open, value2: s.open,
+      color: trend==='bullish'?'#ddff00':'#bf00ff', trendType: trend==='bullish'?'BULLISH_SHARP':'BEARISH_SHARP', pct },
+    { id: `e_${endIdx}`, candleIndex: endIdx, time1: e.timestamp, time2: new Date(e.timestamp.getTime() + config.boxValidityHours*3600000),
+      value1: e.close, value2: e.close, color: trend==='bullish'?'#ddff00':'#bf00ff', trendType: trend==='bullish'?'BULLISH_SHARP':'BEARISH_SHARP', pct }
+  ];
 }
 
 function detectSharpTrends(marketData) {
@@ -67,13 +120,13 @@ function detectSharpTrends(marketData) {
 // ==================== خواندن فایل‌ها با نام اصلی ====================
 function loadMarketDataByChunk(dataDir, start, end) {
   const allFiles = fs.readdirSync(dataDir).filter(f => f.endsWith('.csv'));
+  // استخراج تاریخ شروع از نام فایل (مثل BTCUSDT-5m-2018-01-01_2018-01-10.csv)
   const dated = allFiles.map(f => {
-    const m = f.match(/(\d{4}-\d{2})\.csv$/);
-    return { file: f, date: m ? m[1] : null };
+    const m = f.match(/(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})\.csv$/);
+    return { file: f, date: m ? m[1] : null };  // تاریخ شروع
   }).filter(x => x.date !== null);
-  dated.sort((a, b) => a.date.localeCompare(b.date));
 
-  // محدود کردن end به تعداد فایل‌های موجود
+  dated.sort((a, b) => a.date.localeCompare(b.date));
   const effectiveEnd = Math.min(end, dated.length - 1);
   const selected = dated.slice(start, effectiveEnd + 1);
 
@@ -127,7 +180,6 @@ if (fs.existsSync(divPath)) divergenceDetector = require(divPath);
 function encryptResults(outputDir, password) {
   const tarPath = outputDir + '.tar.gz';
   const encPath = path.join(outputDir, 'results.enc');
-  // ساخت tar.gz از کل پوشه
   const { execSync } = require('child_process');
   execSync(`tar -czf "${tarPath}" -C "${path.dirname(outputDir)}" "${path.basename(outputDir)}"`);
   
@@ -138,7 +190,6 @@ function encryptResults(outputDir, password) {
   const encrypted = Buffer.concat([cipher.update(input), cipher.final()]);
   fs.writeFileSync(encPath, Buffer.concat([iv, encrypted]));
   fs.unlinkSync(tarPath);
-  // پاک کردن پوشه اصلی (اختیاری)
   fs.rmSync(outputDir, { recursive: true, force: true });
 }
 
@@ -197,7 +248,6 @@ function encryptResults(outputDir, password) {
   fs.writeFileSync(path.join(outputDir, 'trades_summary.json'), JSON.stringify(summary, null, 2));
   fs.writeFileSync(path.join(outputDir, '1.json'), strategyCode, 'utf8');
 
-  // رمزنگاری نتایج و ذخیره
   encryptResults(outputDir, resultsPassword);
   console.log(`✅ results.enc ذخیره شد.`);
 })().catch(err => { console.error(err); process.exit(1); });
