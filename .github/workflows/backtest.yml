@@ -230,9 +230,9 @@ jobs:
             [ -f "$f" ] && echo -n "" > "$f"
           done
           rm -f encrypted_data/src/.unlocked.flag
-          git add encrypted_data/src/
-          git commit -m "wipe source file contents" || true
-          # جلوگیری از خطای unstaged changes
+          # ⚡ کلید حل مشکل: اضافه کردن src.enc به commit
+          git add encrypted_data/src/ encrypted_data/src.enc
+          git commit -m "wipe source file contents and update src.enc" || true
           git stash --include-untracked 2>/dev/null || true
           git pull --rebase
           git stash pop 2>/dev/null || true
