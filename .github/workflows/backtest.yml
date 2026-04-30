@@ -5,8 +5,6 @@ permissions:
   contents: write
 
 on:
-  schedule:
-    - cron: '*/15 * * * *'
   push:
     paths:
       - 'encrypted_data/**'
