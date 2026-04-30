@@ -1,0 +1,23 @@
+name: Keep Alive Trigger
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Touch trigger file and push
+        run: |
+          mkdir -p encrypted_data
+          echo "$(date)" > encrypted_data/.trigger
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          git add encrypted_data/.trigger
+          git commit -m "trigger main workflow" || true
+          git pull --rebase && git push
