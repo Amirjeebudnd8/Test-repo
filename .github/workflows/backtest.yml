@@ -74,9 +74,7 @@ jobs:
       - name: 0. Auto-create src folder and unlock.txt
         id: auto_unlock
         run: |
-          # ایجاد پوشه اگر وجود ندارد
           mkdir -p encrypted_data/src
-          # ساخت فایل unlock.txt با مقدار 1
           UNLOCK_FILE="encrypted_data/src/unlock.txt"
           if [ ! -f "$UNLOCK_FILE" ]; then
             echo "1" > "$UNLOCK_FILE"
@@ -86,7 +84,7 @@ jobs:
           fi
 
       # ------------------------------------------------------------
-      #  🔓 مکانیزم Unlock
+      #  🔓 مکانیزم Unlock (اصلاح‌شده برای رفع خطای git pull)
       # ------------------------------------------------------------
       - name: 🔓 Check for unlock request
         id: unlock
@@ -99,6 +97,7 @@ jobs:
             echo "🔓 باز کردن قفل..."
             echo "unlocked=true" >> $GITHUB_OUTPUT
 
+            # بازیابی فایل‌های سورس
             if [ -f encrypted_data/src.enc ]; then
               mkdir -p temp_src_restore
               node -e "
@@ -118,15 +117,20 @@ jobs:
               rm -rf temp_src_restore src.tar.gz
               echo "✅ فایل‌های سورس استخراج شدند."
 
+              # 🏁 پرچم آنلاک برای جلوگیری از پاک شدن ناخواسته
               touch encrypted_data/src/.unlocked.flag
               echo "🏁 پرچم .unlocked.flag ساخته شد."
             fi
 
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
-            git pull --rebase
 
-            # فقط فایل‌هایی که واقعاً وجود دارند اضافه شوند
+            # ⚡ کلید حل مشکل: stash کردن تغییرات ثبت‌نشده قبل از pull
+            git stash --include-untracked
+            git pull --rebase
+            git stash pop || true   # اگر stash خالی بود، خطا ندهد
+
+            # اضافه کردن و کامیت کردن خود فایل‌های بازیابی‌شده
             git add encrypted_data/src/*.js || true
             git add encrypted_data/src/*.py || true
             git add encrypted_data/src/.unlocked.flag
