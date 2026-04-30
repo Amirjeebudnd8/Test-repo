@@ -69,7 +69,7 @@ jobs:
         run: pip install pandas requests
 
       # ------------------------------------------------------------
-      #  🔓 مکانیزم Unlock – قفل را باز می‌کند و پرچم می‌دهد
+      #  🔓 مکانیزم Unlock - تضمین می‌کند فایل‌ها در مخزن بمانند
       # ------------------------------------------------------------
       - name: 🔓 Check for unlock request
         id: unlock
@@ -81,6 +81,8 @@ jobs:
           if [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
             echo "🔓 باز کردن قفل..."
             echo "unlocked=true" >> $GITHUB_OUTPUT
+
+            # بازیابی فایل‌های سورس
             if [ -f encrypted_data/src.enc ]; then
               mkdir -p temp_src_restore
               node -e "
@@ -95,11 +97,12 @@ jobs:
                 fs.writeFileSync('src.tar.gz',dec);
               "
               tar -xzf src.tar.gz -C temp_src_restore
+              mkdir -p encrypted_data/src
               cp -r temp_src_restore/* encrypted_data/src/
               rm -rf temp_src_restore src.tar.gz
               echo "✅ فایل‌های سورس استخراج شدند."
 
-              # گذاشتن پرچم آنلاک برای جلوگیری از رمزنگاری مجدد در اجراهای بعدی
+              # 🏁 پرچم آنلاک برای جلوگیری از پاک شدن ناخواسته
               touch encrypted_data/src/.unlocked.flag
               echo "🏁 پرچم .unlocked.flag ساخته شد."
             fi
@@ -107,9 +110,13 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git pull --rebase
+
+            # ⚡ مهم: اضافه کردن و کامیت کردن خود فایل‌های بازیابی‌شده
+            git add encrypted_data/src/*.js encrypted_data/src/*.py encrypted_data/src/.unlocked.flag
+
             rm -f "$UNLOCK_FILE"
             git add "$UNLOCK_FILE"
-            git commit -m "remove unlock flag" || true
+            git commit -m "unlock source files" || true
             git push
           else
             echo "🔒 حالت عادی. فایل unlock.txt با مقدار '1' یافت نشد."
@@ -143,7 +150,7 @@ jobs:
           git push
 
       # ------------------------------------------------------------
-      #  داده‌های اصلی (prepare_data.py قدیمی غیرفعال شده)
+      #  داده‌های اصلی
       # ------------------------------------------------------------
       - name: 7. Decrypt data.enc if exists
         env:
@@ -182,13 +189,12 @@ jobs:
           rm data.tar.gz
 
       # ------------------------------------------------------------
-      #  🔒 رمزنگاری مجدد – فقط وقتی پرچم آنلاک وجود نداشته باشد
+      #  🔒 رمزنگاری مجدد - فقط وقتی پرچم آنلاک وجود ندارد
       # ------------------------------------------------------------
       - name: 10. Check if source files need re-encryption
         id: source_check
         run: |
           NEED=false
-          # اگر پرچم .unlocked.flag وجود داشته باشد، هرگز رمزنگاری نکن
           if [ ! -f encrypted_data/src/.unlocked.flag ]; then
             for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
               [ -f "$f" ] && [ -s "$f" ] && NEED=true && break
@@ -223,10 +229,7 @@ jobs:
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
             [ -f "$f" ] && echo -n "" > "$f"
           done
-
-          # پرچم آنلاک را پاک کن (اگر وجود داشت)
           rm -f encrypted_data/src/.unlocked.flag
-
           git add encrypted_data/src/
           git commit -m "wipe source file contents" || true
           git push
