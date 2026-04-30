@@ -5,7 +5,7 @@ permissions:
 
 on:
   schedule:
-    - cron: '0 */2 * * *'
+    - cron: '*/15 * * * *'
   push:
     paths:
       - 'encrypted_data/**'
@@ -14,19 +14,59 @@ on:
   workflow_dispatch:
 
 jobs:
-  prepare:
+  # ------------------------------------------------------------
+  #  کار جدید: بررسی ضرورت اجرا (Idempotency)
+  # ------------------------------------------------------------
+  check-completion:
     runs-on: ubuntu-latest
-    timeout-minutes: 60
     outputs:
-      strategies: ${{ steps.list_strategies.outputs.files }}
-      chunks: ${{ steps.build_chunks.outputs.chunks }}
+      all_completed: ${{ steps.check.outputs.all_completed }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Cache ZIP files
+      - name: Check if all results already exist
+        id: check
+        run: |
+          ALL_COMPLETED=true
+          # اگر هیچ استراتژی وجود نداشت، کاری نکن
+          if [ -d strategies ] && [ "$(ls -A strategies/*.js 2>/dev/null)" ]; then
+            for strategy in strategies/*.js; do
+              strat_name="$(basename "$strategy" .js)"
+              # خروجی کامل‌ترین حالت این است که تمام چانک‌ها ساخته شده باشند.
+              # چون تعداد چانک‌ها داینامیک است، کافی است حداقل یک فایل خروجی برای آن استراتژی وجود داشته باشد
+              # تا مطمئن شویم کار قبلاً انجام شده و این استراتژی نیاز به اجرا ندارد.
+              if ! find results -path "results/${strat_name}/chunk_*/results.enc" -print -quit | grep -q .; then
+                ALL_COMPLETED=false
+                break
+              fi
+            done
+          else
+            # بدون استراتژی کار جدیدی نداریم
+            ALL_COMPLETED=true
+          fi
+          echo "all_completed=$ALL_COMPLETED" >> $GITHUB_OUTPUT
+
+  # ------------------------------------------------------------
+  #  Job اول: آماده‌سازی (با شرط وابسته به check-completion)
+  # ------------------------------------------------------------
+  prepare:
+    needs: check-completion
+    if: needs.check-completion.outputs.all_completed != 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    outputs:
+      strategies: ${{ steps.list_strategies.outputs.files }}
+      chunks: ${{ steps.build_chunks.outputs.chunks }}
+    steps:
+      - name: 1. Checkout repository
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 2. Cache ZIP files
         uses: actions/cache@v4
         with:
           path: zips
@@ -34,26 +74,38 @@ jobs:
           restore-keys: |
             zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-
 
-      - name: Setup Python
+      - name: 3. Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: Install Python dependencies
+      - name: 4. Install Python dependencies
         run: pip install pandas requests
 
-      - name: Prepare market data (download & extract)
+      # تغییر یافته: آماده‌سازی هوشمند داده‌ها (شامل ۲۰۲۵/۲۰۲۶)
+      - name: 5. Prepare market data (smart)
         id: prep_data
         run: |
-          if [ -f encrypted_data/data.enc ]; then
-            echo "data_exists=true" >> $GITHUB_OUTPUT
-          else
-            echo "data_exists=false" >> $GITHUB_OUTPUT
-            python encrypted_data/prepare_data.py
+          DATA_ALL_READY=true
+          DATA_2025_READY=false
+
+          if [ -f encrypted_data/data.enc ] && [ -f encrypted_data/data_2025.ready ]; then
+            DATA_2025_READY=true
           fi
 
-      - name: Build data.enc if missing
-        if: steps.prep_data.outputs.data_exists != 'true'
+          if [ ! -f encrypted_data/data.enc ]; then
+            DATA_ALL_READY=false
+            python encrypted_data/prepare_data.py
+          elif [ "$DATA_2025_READY" = false ]; then
+            # داده‌های اصلی داریم، ولی ۲۰۲۵/۲۰۲۶ نیستند
+            python encrypted_data/prepare_data.py --year-2025-only
+          fi
+
+          echo "data_all_ready=$DATA_ALL_READY" >> $GITHUB_OUTPUT
+          echo "data_2025_ready=$DATA_2025_READY" >> $GITHUB_OUTPUT
+
+      - name: 6. Build/Rebuild data.enc if needed
+        if: steps.prep_data.outputs.data_2025_ready != 'true'
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
@@ -71,8 +123,10 @@ jobs:
             fs.writeFileSync('encrypted_data/data.enc',Buffer.concat([iv,enc]));
           "
           rm data.tar.gz
+          # علامت‌گذاری برای اتمام کار ۲۰۲۵/۲۰۲۶
+          touch encrypted_data/data_2025.ready
 
-      - name: Decrypt data.enc
+      - name: 7. Decrypt data.enc
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
@@ -91,7 +145,7 @@ jobs:
           tar -xzf data.tar.gz -C data
           rm data.tar.gz
 
-      - name: Encrypt source files if needed
+      - name: 8. Encrypt source files if needed
         id: enc_src
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
@@ -119,7 +173,18 @@ jobs:
             git push
           fi
 
-      - name: Decrypt src.enc
+      # گام جدید: خالی کردن محتوای فایل‌های اصلی
+      - name: 9. Wipe plaintext source files
+        if: steps.enc_src.outputs.src_exists != 'true'
+        run: |
+          for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
+            [ -f "$f" ] && echo -n "" > "$f"
+          done
+          git add encrypted_data/src/
+          git commit -m "wipe source files after encryption" || true
+          git push
+
+      - name: 10. Decrypt src.enc
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
@@ -137,21 +202,21 @@ jobs:
           tar -xzf src.tar.gz
           rm src.tar.gz
 
-      - name: Setup Node.js
+      - name: 11. Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Install Node dependencies
+      - name: 12. Install Node dependencies
         run: npm install papaparse
 
-      - name: List available strategies
+      - name: 13. List available strategies
         id: list_strategies
         run: |
           files=$(ls strategies/*.js 2>/dev/null | sed 's|strategies/||' | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: Build dynamic chunks
+      - name: 14. Build dynamic chunks
         id: build_chunks
         run: |
           cnt=$(ls data/All_Coins_Combined/*.csv 2>/dev/null | wc -l)
@@ -166,7 +231,7 @@ jobs:
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
-      - name: Upload prepared environment
+      - name: 15. Upload prepared environment
         uses: actions/upload-artifact@v4
         with:
           name: prep
@@ -179,9 +244,12 @@ jobs:
             node_modules/
             package.json
 
+  # ------------------------------------------------------------
+  #  Job دوم: بک‌تست (با چک سلامت)
+  # ------------------------------------------------------------
   backtest:
-    needs: prepare
-    if: needs.prepare.outputs.strategies != '[]'
+    needs: [check-completion, prepare]
+    if: needs.prepare.outputs.strategies != '[]' && needs.check-completion.outputs.all_completed != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
@@ -190,22 +258,68 @@ jobs:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
         chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
     steps:
-      - name: Checkout repository
+      - name: 1. Checkout repository
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Download prepared environment
+      - name: 2. Download prepared environment
         uses: actions/download-artifact@v4
         with:
           name: prep
 
-      - name: Setup Node.js
+      - name: 3. Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: Run backtest for chunk
+      # ------------------------------------------------------------
+      #  گام جدید: سلامت‌سنجی پیش از اجرا
+      # ------------------------------------------------------------
+      - name: 🩺 4. سلامت‌سنجی پیش از بک‌تست
+        run: |
+          echo "=============================="
+          echo "   📊 گزارش سلامت‌سنجی"
+          echo "=============================="
+          echo ""
+          echo "📁 ۱. بررسی داده‌های ورودی:"
+          DATA_DIR="data/All_Coins_Combined"
+          if [ ! -d "$DATA_DIR" ]; then
+            echo "❌ خطا: پوشه‌ی داده‌ها یافت نشد."
+            exit 1
+          fi
+          FILE_COUNT=$(ls -1 "$DATA_DIR"/*.csv 2>/dev/null | wc -l)
+          echo "   ✅ تعداد کل فایل‌های CSV: $FILE_COUNT"
+          if [ "$FILE_COUNT" -gt 0 ]; then
+            FIRST_FILE=$(ls -1 "$DATA_DIR"/*.csv | head -1 | xargs basename)
+            LAST_FILE=$(ls -1 "$DATA_DIR"/*.csv | tail -1 | xargs basename)
+            echo "   📄 اولین فایل: $FIRST_FILE"
+            echo "   📄 آخرین فایل: $LAST_FILE"
+            HIGH=0
+            for f in "$DATA_DIR"/*.csv; do
+              LINES=$(wc -l < "$f")
+              [ "$LINES" -gt 2500 ] && ((HIGH++))
+            done
+            echo "   ⚡ فایل‌های با بیش از ۲۵۰۰ کندل: $HIGH"
+          fi
+          echo ""
+          echo "⚙️  ۲. بررسی کدهای اصلی:"
+          for cf in backtest-core.js divergence-detector.js run-backtest.js; do
+            if [ -f "$cf" ]; then echo "   ✅ $cf"; else echo "   ❌ $cf"; exit 1; fi
+          done
+          echo ""
+          echo "🧠 ۳. بررسی فایل استراتژی:"
+          if [ -f "strategies/${{ matrix.strategy_file }}" ]; then
+            echo "   ✅ strategies/${{ matrix.strategy_file }}"
+          else
+            echo "   ❌ فایل استراتژی پیدا نشد."
+            exit 1
+          fi
+          echo ""
+          echo "✅ همه چیز آماده است."
+
+      - name: 5. Run backtest for chunk
+        continue-on-error: true
         run: |
           END=$(( ${{ matrix.chunk }} + 24 ))
           node run-backtest.js \
@@ -215,7 +329,35 @@ jobs:
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
-      - name: Commit and push encrypted results
+      # ------------------------------------------------------------
+      #  گام جدید: عیب‌یاب هوشمند پس از بک‌تست
+      # ------------------------------------------------------------
+      - name: 🩺 6. عیب‌یاب هوشمند پس از بک‌تست
+        if: always()
+        run: |
+          echo ""
+          echo "=============================================="
+          echo "   🔍 عیب‌یابی نهایی"
+          echo "=============================================="
+          STRAT="${{ matrix.strategy_file }}"
+          START=${{ matrix.chunk }}
+          END=$(( ${{ matrix.chunk }} + 24 ))
+          RES_DIR="results/${STRAT}/chunk_${START}_${END}"
+          if [ -d "$RES_DIR" ]; then
+            echo "✅ پوشه‌ی نتایج وجود دارد."
+            ls -la "$RES_DIR" || true
+          else
+            echo "❌ پوشه‌ی نتایج ساخته نشد. بررسی علت:"
+            echo "   - وجود پوشه results اصلی: $([ -d results ] && echo بله || echo خیر)"
+            echo "   - وضعیت Job: ${{ job.status }}"
+            echo "   - مجوز نوشتن: در حال بررسی..."
+            touch test_write 2>/dev/null && rm test_write && echo "     ✅ نوشتن ممکن است" || echo "     ❌ نوشتن غیرممکن"
+            echo "   - جستجوی results.enc:"
+            find . -name "results.enc" 2>/dev/null || echo "     یافت نشد"
+          fi
+
+      - name: 7. Commit and push encrypted results
+        if: always()
         run: |
           if [ -f results/*/chunk_*/results.enc ]; then
             git config user.name "github-actions[bot]"
