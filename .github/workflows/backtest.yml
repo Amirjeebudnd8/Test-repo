@@ -15,7 +15,7 @@ on:
 
 jobs:
   # ------------------------------------------------------------
-  #  کار جدید: بررسی ضرورت اجرا (Idempotency)
+  #  کار: بررسی ضرورت اجرا (Idempotency)
   # ------------------------------------------------------------
   check-completion:
     runs-on: ubuntu-latest
@@ -31,26 +31,21 @@ jobs:
         id: check
         run: |
           ALL_COMPLETED=true
-          # اگر هیچ استراتژی وجود نداشت، کاری نکن
           if [ -d strategies ] && [ "$(ls -A strategies/*.js 2>/dev/null)" ]; then
             for strategy in strategies/*.js; do
               strat_name="$(basename "$strategy" .js)"
-              # خروجی کامل‌ترین حالت این است که تمام چانک‌ها ساخته شده باشند.
-              # چون تعداد چانک‌ها داینامیک است، کافی است حداقل یک فایل خروجی برای آن استراتژی وجود داشته باشد
-              # تا مطمئن شویم کار قبلاً انجام شده و این استراتژی نیاز به اجرا ندارد.
-              if ! find results -path "results/${strat_name}/chunk_*/results.enc" -print -quit | grep -q .; then
+              if ! find results -path "results/${strat_name}/chunk_*/results.enc" -print -quit 2>/dev/null | grep -q .; then
                 ALL_COMPLETED=false
                 break
               fi
             done
           else
-            # بدون استراتژی کار جدیدی نداریم
             ALL_COMPLETED=true
           fi
           echo "all_completed=$ALL_COMPLETED" >> $GITHUB_OUTPUT
 
   # ------------------------------------------------------------
-  #  Job اول: آماده‌سازی (با شرط وابسته به check-completion)
+  #  Job اول: آماده‌سازی
   # ------------------------------------------------------------
   prepare:
     needs: check-completion
@@ -82,30 +77,13 @@ jobs:
       - name: 4. Install Python dependencies
         run: pip install pandas requests
 
-      # تغییر یافته: آماده‌سازی هوشمند داده‌ها (شامل ۲۰۲۵/۲۰۲۶)
-      - name: 5. Prepare market data (smart)
-        id: prep_data
-        run: |
-          DATA_ALL_READY=true
-          DATA_2025_READY=false
+      # ------------------------------------------------------------
+      #  همیشه اجرا شود – خودش می‌فهمد چه چیزی جدید است
+      # ------------------------------------------------------------
+      - name: 5. Prepare market data (always run)
+        run: python encrypted_data/prepare_data.py
 
-          if [ -f encrypted_data/data.enc ] && [ -f encrypted_data/data_2025.ready ]; then
-            DATA_2025_READY=true
-          fi
-
-          if [ ! -f encrypted_data/data.enc ]; then
-            DATA_ALL_READY=false
-            python encrypted_data/prepare_data.py
-          elif [ "$DATA_2025_READY" = false ]; then
-            # داده‌های اصلی داریم، ولی ۲۰۲۵/۲۰۲۶ نیستند
-            python encrypted_data/prepare_data.py --year-2025-only
-          fi
-
-          echo "data_all_ready=$DATA_ALL_READY" >> $GITHUB_OUTPUT
-          echo "data_2025_ready=$DATA_2025_READY" >> $GITHUB_OUTPUT
-
-      - name: 6. Build/Rebuild data.enc if needed
-        if: steps.prep_data.outputs.data_2025_ready != 'true'
+      - name: 6. Rebuild data.enc (always)
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
@@ -123,7 +101,6 @@ jobs:
             fs.writeFileSync('encrypted_data/data.enc',Buffer.concat([iv,enc]));
           "
           rm data.tar.gz
-          # علامت‌گذاری برای اتمام کار ۲۰۲۵/۲۰۲۶
           touch encrypted_data/data_2025.ready
 
       - name: 7. Decrypt data.enc
@@ -173,7 +150,6 @@ jobs:
             git push
           fi
 
-      # گام جدید: خالی کردن محتوای فایل‌های اصلی
       - name: 9. Wipe plaintext source files
         if: steps.enc_src.outputs.src_exists != 'true'
         run: |
@@ -245,7 +221,7 @@ jobs:
             package.json
 
   # ------------------------------------------------------------
-  #  Job دوم: بک‌تست (با چک سلامت)
+  #  Job دوم: بک‌تست
   # ------------------------------------------------------------
   backtest:
     needs: [check-completion, prepare]
@@ -253,7 +229,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
-      fail-fast: false
+      fail-fast: false          # جلوگیری از لغو زنجیره‌ای
       max-parallel: 8
       matrix:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
@@ -275,7 +251,7 @@ jobs:
           node-version: '18'
 
       # ------------------------------------------------------------
-      #  گام جدید: سلامت‌سنجی پیش از اجرا
+      #  سلامت‌سنجی پیش از بک‌تست (رفع Broken pipe)
       # ------------------------------------------------------------
       - name: 🩺 4. سلامت‌سنجی پیش از بک‌تست
         run: |
@@ -292,12 +268,14 @@ jobs:
           FILE_COUNT=$(ls -1 "$DATA_DIR"/*.csv 2>/dev/null | wc -l)
           echo "   ✅ تعداد کل فایل‌های CSV: $FILE_COUNT"
           if [ "$FILE_COUNT" -gt 0 ]; then
-            FIRST_FILE=$(ls -1 "$DATA_DIR"/*.csv | head -1 | xargs basename)
-            LAST_FILE=$(ls -1 "$DATA_DIR"/*.csv | tail -1 | xargs basename)
+            # رفع Broken pipe با استفاده از آرایه
+            CSV_FILES=("$DATA_DIR"/*.csv)
+            FIRST_FILE=$(basename "${CSV_FILES[0]}")
+            LAST_FILE=$(basename "${CSV_FILES[-1]}")
             echo "   📄 اولین فایل: $FIRST_FILE"
             echo "   📄 آخرین فایل: $LAST_FILE"
             HIGH=0
-            for f in "$DATA_DIR"/*.csv; do
+            for f in "${CSV_FILES[@]}"; do
               LINES=$(wc -l < "$f")
               [ "$LINES" -gt 2500 ] && ((HIGH++))
             done
@@ -331,7 +309,7 @@ jobs:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
       # ------------------------------------------------------------
-      #  گام جدید: عیب‌یاب هوشمند پس از بک‌تست
+      #  عیب‌یاب هوشمند پس از بک‌تست
       # ------------------------------------------------------------
       - name: 🩺 6. عیب‌یاب هوشمند پس از بک‌تست
         if: always()
