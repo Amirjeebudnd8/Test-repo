@@ -84,16 +84,16 @@ jobs:
             find results -name "results.enc" -type f | while read ENC; do
               echo "  ⚙️  $ENC"
               DIR=$(dirname "$ENC")
-              node -e "
-                const crypto=require('crypto'),fs=require('fs');
+              node -e '
+                const crypto=require("crypto"),fs=require("fs");
                 const pass=process.env.RESULTS_PASSWORD;
-                const data=fs.readFileSync('${ENC}');
-                const key=crypto.scryptSync(pass,'salt',32);
+                const data=fs.readFileSync("'"$ENC"'");
+                const key=crypto.scryptSync(pass,"salt",32);
                 const iv=data.slice(0,16), enc=data.slice(16);
-                const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+                const decipher=crypto.createDecipheriv("aes-256-cbc",key,iv);
                 const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
-                fs.writeFileSync('${DIR}/results.tar.gz',dec);
-              "
+                fs.writeFileSync("'"$DIR"'/results.tar.gz",dec);
+              '
               tar -xzf "$DIR/results.tar.gz" -C "$DIR"
               rm -f "$DIR/results.tar.gz"
             done
@@ -105,7 +105,7 @@ jobs:
             git pull --rebase && git push
 
             rm -f "$UNLOCK_FILE"
-            rm -f "$FLAG_FILE"    # پرچم هم پاک شود
+            rm -f "$FLAG_FILE"
 
           # [۱] unlock = 1 : استخراج سورس
           elif [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
@@ -114,16 +114,16 @@ jobs:
 
             if [ -f encrypted_data/src.enc ]; then
               mkdir -p temp_src_restore
-              node -e "
-                const crypto=require('crypto'),fs=require('fs');
+              node -e '
+                const crypto=require("crypto"),fs=require("fs");
                 const pass=process.env.CODE_PASSWORD;
-                const data=fs.readFileSync('encrypted_data/src.enc');
-                const key=crypto.scryptSync(pass,'salt',32);
+                const data=fs.readFileSync("encrypted_data/src.enc");
+                const key=crypto.scryptSync(pass,"salt",32);
                 const iv=data.slice(0,16), enc=data.slice(16);
-                const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+                const decipher=crypto.createDecipheriv("aes-256-cbc",key,iv);
                 const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
-                fs.writeFileSync('src.tar.gz',dec);
-              "
+                fs.writeFileSync("src.tar.gz",dec);
+              '
               tar -xzf src.tar.gz -C temp_src_restore
               mkdir -p encrypted_data/src
               cp -r temp_src_restore/* encrypted_data/src/
@@ -139,9 +139,9 @@ jobs:
             git rm --cached "$UNLOCK_FILE" 2>/dev/null || rm -f "$UNLOCK_FILE"
             git commit -m "unlock source files" || true
             git pull --rebase && git push
+            rm -f "$FLAG_FILE"
 
           else
-            # حالت عادی – پاکسازی JSONهای قدیمی نتایج
             echo "🧹 پاکسازی JSONهای استخراج‌شده قبلی"
             find results -type f ! -name "results.enc" \( -name "*.json" -o -name "*.tar.gz" \) -delete
             if find results -type f ! -name "results.enc" | grep -q .; then
@@ -185,16 +185,16 @@ jobs:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
           if [ -f encrypted_data/data.enc ]; then
-            node -e "
-              const crypto=require('crypto'),fs=require('fs');
+            node -e '
+              const crypto=require("crypto"),fs=require("fs");
               const pass=process.env.DATA_PASSWORD;
-              const data=fs.readFileSync('encrypted_data/data.enc');
-              const key=crypto.scryptSync(pass,'salt',32);
+              const data=fs.readFileSync("encrypted_data/data.enc");
+              const key=crypto.scryptSync(pass,"salt",32);
               const iv=data.slice(0,16), enc=data.slice(16);
-              const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+              const decipher=crypto.createDecipheriv("aes-256-cbc",key,iv);
               const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
-              fs.writeFileSync('data.tar.gz',dec);
-            "
+              fs.writeFileSync("data.tar.gz",dec);
+            '
             mkdir -p data && tar -xzf data.tar.gz -C data && rm data.tar.gz
           fi
 
@@ -203,16 +203,16 @@ jobs:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
           cd data && tar -czf ../data.tar.gz All_Coins_Combined && cd ..
-          node -e "
-            const crypto=require('crypto'),fs=require('fs');
+          node -e '
+            const crypto=require("crypto"),fs=require("fs");
             const pass=process.env.DATA_PASSWORD;
-            const key=crypto.scryptSync(pass,'salt',32);
+            const key=crypto.scryptSync(pass,"salt",32);
             const iv=crypto.randomBytes(16);
-            const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
-            const input=fs.readFileSync('data.tar.gz');
+            const cipher=crypto.createCipheriv("aes-256-cbc",key,iv);
+            const input=fs.readFileSync("data.tar.gz");
             const enc=Buffer.concat([cipher.update(input),cipher.final()]);
-            fs.writeFileSync('encrypted_data/data.enc',Buffer.concat([iv,enc]));
-          "
+            fs.writeFileSync("encrypted_data/data.enc",Buffer.concat([iv,enc]));
+          '
           rm data.tar.gz
 
       # ---------- ۱۰-۱۲ رمزنگاری هوشمند ----------
@@ -237,16 +237,16 @@ jobs:
           else
             mkdir -p temp_merge
             if [ -f encrypted_data/src.enc ]; then
-              node -e "
-                const crypto=require('crypto'),fs=require('fs');
+              node -e '
+                const crypto=require("crypto"),fs=require("fs");
                 const pass=process.env.CODE_PASSWORD;
-                const data=fs.readFileSync('encrypted_data/src.enc');
-                const key=crypto.scryptSync(pass,'salt',32);
+                const data=fs.readFileSync("encrypted_data/src.enc");
+                const key=crypto.scryptSync(pass,"salt",32);
                 const iv=data.slice(0,16), enc=data.slice(16);
-                const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+                const decipher=crypto.createDecipheriv("aes-256-cbc",key,iv);
                 const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
-                fs.writeFileSync('src_old.tar.gz',dec);
-              "
+                fs.writeFileSync("src_old.tar.gz",dec);
+              '
               tar -xzf src_old.tar.gz -C temp_merge; rm src_old.tar.gz
             fi
             for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
@@ -255,16 +255,16 @@ jobs:
             tar -czf src.tar.gz -C temp_merge .
             rm -rf temp_merge
           fi
-          node -e "
-            const crypto=require('crypto'),fs=require('fs');
+          node -e '
+            const crypto=require("crypto"),fs=require("fs");
             const pass=process.env.CODE_PASSWORD;
-            const key=crypto.scryptSync(pass,'salt',32);
+            const key=crypto.scryptSync(pass,"salt",32);
             const iv=crypto.randomBytes(16);
-            const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);
-            const input=fs.readFileSync('src.tar.gz');
+            const cipher=crypto.createCipheriv("aes-256-cbc",key,iv);
+            const input=fs.readFileSync("src.tar.gz");
             const enc=Buffer.concat([cipher.update(input),cipher.final()]);
-            fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
-          "
+            fs.writeFileSync("encrypted_data/src.enc",Buffer.concat([iv,enc]));
+          '
           rm src.tar.gz
 
       - name: 12. Wipe source files content (keep files)
@@ -275,8 +275,6 @@ jobs:
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
             [ -f "$f" ] && echo -n "" > "$f"
           done
-          # پرچم را فقط در صورتی پاک کن که unlock=1 نبوده باشد
-          # (یعنی حالت عادی ویرایش و رمزنگاری مجدد)
           rm -f encrypted_data/src/.unlocked.flag
           git add encrypted_data/src/ encrypted_data/src.enc
           git commit -m "wipe source files and update src.enc" || true
@@ -289,16 +287,16 @@ jobs:
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
-          node -e "
-            const crypto=require('crypto'),fs=require('fs');
+          node -e '
+            const crypto=require("crypto"),fs=require("fs");
             const pass=process.env.CODE_PASSWORD;
-            const data=fs.readFileSync('encrypted_data/src.enc');
-            const key=crypto.scryptSync(pass,'salt',32);
+            const data=fs.readFileSync("encrypted_data/src.enc");
+            const key=crypto.scryptSync(pass,"salt",32);
             const iv=data.slice(0,16), enc=data.slice(16);
-            const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);
+            const decipher=crypto.createDecipheriv("aes-256-cbc",key,iv);
             const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
-            fs.writeFileSync('src.tar.gz',dec);
-          "
+            fs.writeFileSync("src.tar.gz",dec);
+          '
           tar -xzf src.tar.gz && rm src.tar.gz
 
       - uses: actions/setup-node@v4
@@ -315,7 +313,7 @@ jobs:
         id: build_chunks
         run: |
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-          cnt=2                     # موقتاً ۲ فایل
+          cnt=2
           size=1; n=$(( (cnt + size - 1) / size ))
           chunks="["; for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done; chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
