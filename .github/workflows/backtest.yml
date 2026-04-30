@@ -324,7 +324,13 @@ jobs:
         with:
           name: prep
           path: |
-            data/ backtest-core.js divergence-detector.js run-backtest.js strategies/ node_modules/ package.json
+            data/
+            backtest-core.js
+            divergence-detector.js
+            run-backtest.js
+            strategies/
+            node_modules/
+            package.json
 
   backtest:
     needs: [check-completion, prepare]
