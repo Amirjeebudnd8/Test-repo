@@ -15,7 +15,7 @@ on:
 
 jobs:
   # ------------------------------------------------------------
-  #  کار: بررسی ضرورت اجرا (Idempotency)
+  #  Job: Idempotency – only run if results are incomplete
   # ------------------------------------------------------------
   check-completion:
     runs-on: ubuntu-latest
@@ -39,13 +39,11 @@ jobs:
                 break
               fi
             done
-          else
-            ALL_COMPLETED=true
           fi
           echo "all_completed=$ALL_COMPLETED" >> $GITHUB_OUTPUT
 
   # ------------------------------------------------------------
-  #  Job اول: آماده‌سازی
+  #  Job 1: prepare data & source encryption
   # ------------------------------------------------------------
   prepare:
     needs: check-completion
@@ -74,16 +72,35 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: 4. Install Python dependencies
+      - name: 4. Install Python deps
         run: pip install pandas requests
 
-      # ------------------------------------------------------------
-      #  همیشه اجرا شود – خودش می‌فهمد چه چیزی جدید است
-      # ------------------------------------------------------------
-      - name: 5. Prepare market data (always run)
-        run: python encrypted_data/prepare_data.py
+      # ── Smart data preparation ──
+      - name: 5. Prepare market data (auto-detect 2025/2026 gap)
+        id: prep_data
+        run: |
+          NEED_RUN=false
+          if [ ! -f encrypted_data/data.enc ]; then
+            NEED_RUN=true
+          else
+            # اگر data.enc هست، تعداد فایل‌های CSV داخل All_Coins_Combined را می‌شمریم
+            if [ -d data/All_Coins_Combined ]; then
+              CSV_COUNT=$(ls -1 data/All_Coins_Combined/*.csv 2>/dev/null | wc -l)
+            else
+              CSV_COUNT=0
+            fi
+            echo "csvexisting=$CSV_COUNT" >> $GITHUB_OUTPUT
+            if [ "$CSV_COUNT" -lt 1000 ]; then
+              NEED_RUN=true
+            fi
+          fi
+          echo "need_run=$NEED_RUN" >> $GITHUB_OUTPUT
+          if [ "$NEED_RUN" = true ]; then
+            python encrypted_data/prepare_data.py
+          fi
 
-      - name: 6. Rebuild data.enc (always)
+      - name: 6. Rebuild data.enc (only if data changed)
+        if: steps.prep_data.outputs.need_run == 'true'
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
@@ -101,9 +118,8 @@ jobs:
             fs.writeFileSync('encrypted_data/data.enc',Buffer.concat([iv,enc]));
           "
           rm data.tar.gz
-          touch encrypted_data/data_2025.ready
 
-      - name: 7. Decrypt data.enc
+      - name: 7. Decrypt data.enc (always)
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
@@ -122,16 +138,32 @@ jobs:
           tar -xzf data.tar.gz -C data
           rm data.tar.gz
 
+      # ── Source encryption with content‑only wipe ──
       - name: 8. Encrypt source files if needed
         id: enc_src
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
+          SRC_DIR="encrypted_data/src"
           if [ -f encrypted_data/src.enc ]; then
             echo "src_exists=true" >> $GITHUB_OUTPUT
+            # اگر src.enc هست ولی فایل‌های src/ محتوایی دارند، رمزنگاری دوباره انجام شود
+            if [ -d "$SRC_DIR" ] && [ -n "$(find "$SRC_DIR" -maxdepth 1 -type f ! -size 0)" ]; then
+              echo "src_exists=false" >> $GITHUB_OUTPUT
+            fi
           else
             echo "src_exists=false" >> $GITHUB_OUTPUT
-            tar -czf src.tar.gz -C encrypted_data/src .
+          fi
+        continue-on-error: true
+
+      - name: 9. Encrypt source (if needed)
+        if: steps.enc_src.outputs.src_exists != 'true'
+        env:
+          CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
+        run: |
+          SRC_DIR="encrypted_data/src"
+          if [ -d "$SRC_DIR" ]; then
+            tar -czf src.tar.gz -C "$SRC_DIR" .
             node -e "
               const crypto=require('crypto'),fs=require('fs');
               const pass=process.env.CODE_PASSWORD;
@@ -142,25 +174,23 @@ jobs:
               const enc=Buffer.concat([cipher.update(input),cipher.final()]);
               fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));
             "
-            rm -rf encrypted_data/src src.tar.gz
-            git config user.name "github-actions[bot]"
-            git config user.email "actions@github.com"
-            git add -A
-            git commit -m "encrypt source files" || true
+            rm src.tar.gz
+          fi
+
+      - name: 10. Wipe source files content (never delete files)
+        if: steps.enc_src.outputs.src_exists != 'true'
+        run: |
+          SRC_DIR="encrypted_data/src"
+          if [ -d "$SRC_DIR" ]; then
+            for f in "$SRC_DIR"/*.js "$SRC_DIR"/*.py; do
+              [ -f "$f" ] && echo -n "" > "$f"
+            done
+            git add "$SRC_DIR/"
+            git commit -m "wipe source file contents after encryption" || true
             git push
           fi
 
-      - name: 9. Wipe plaintext source files
-        if: steps.enc_src.outputs.src_exists != 'true'
-        run: |
-          for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
-            [ -f "$f" ] && echo -n "" > "$f"
-          done
-          git add encrypted_data/src/
-          git commit -m "wipe source files after encryption" || true
-          git push
-
-      - name: 10. Decrypt src.enc
+      - name: 11. Decrypt src.enc
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
@@ -178,21 +208,21 @@ jobs:
           tar -xzf src.tar.gz
           rm src.tar.gz
 
-      - name: 11. Setup Node.js
+      - name: 12. Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: 12. Install Node dependencies
+      - name: 13. Install Node deps
         run: npm install papaparse
 
-      - name: 13. List available strategies
+      - name: 14. List strategies
         id: list_strategies
         run: |
           files=$(ls strategies/*.js 2>/dev/null | sed 's|strategies/||' | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: 14. Build dynamic chunks
+      - name: 15. Build dynamic chunks
         id: build_chunks
         run: |
           cnt=$(ls data/All_Coins_Combined/*.csv 2>/dev/null | wc -l)
@@ -207,7 +237,7 @@ jobs:
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
-      - name: 15. Upload prepared environment
+      - name: 16. Upload prepared artifact
         uses: actions/upload-artifact@v4
         with:
           name: prep
@@ -221,7 +251,7 @@ jobs:
             package.json
 
   # ------------------------------------------------------------
-  #  Job دوم: بک‌تست
+  #  Job 2: Backtest with health checks
   # ------------------------------------------------------------
   backtest:
     needs: [check-completion, prepare]
@@ -229,18 +259,18 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 300
     strategy:
-      fail-fast: false          # جلوگیری از لغو زنجیره‌ای
+      fail-fast: false
       max-parallel: 8
       matrix:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
         chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
     steps:
-      - name: 1. Checkout repository
+      - name: 1. Checkout
         uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 2. Download prepared environment
+      - name: 2. Download prepared artifact
         uses: actions/download-artifact@v4
         with:
           name: prep
@@ -250,57 +280,74 @@ jobs:
         with:
           node-version: '18'
 
-      # ------------------------------------------------------------
-      #  سلامت‌سنجی پیش از بک‌تست (رفع Broken pipe)
-      # ------------------------------------------------------------
-      - name: 🩺 4. سلامت‌سنجی پیش از بک‌تست
+      # ── Enhanced Pre‑flight Health Check (no pipes) ──
+      - name: 🩺 4. Pre‑flight Health Check
         run: |
-          echo "=============================="
-          echo "   📊 گزارش سلامت‌سنجی"
-          echo "=============================="
+          echo "=============================================="
+          echo "   📊 PRE‑FLIGHT HEALTH REPORT"
+          echo "=============================================="
           echo ""
-          echo "📁 ۱. بررسی داده‌های ورودی:"
+
+          # 1. Data directory
           DATA_DIR="data/All_Coins_Combined"
           if [ ! -d "$DATA_DIR" ]; then
-            echo "❌ خطا: پوشه‌ی داده‌ها یافت نشد."
+            echo "❌ FATAL: Data directory '$DATA_DIR' not found."
             exit 1
           fi
-          FILE_COUNT=$(ls -1 "$DATA_DIR"/*.csv 2>/dev/null | wc -l)
-          echo "   ✅ تعداد کل فایل‌های CSV: $FILE_COUNT"
-          if [ "$FILE_COUNT" -gt 0 ]; then
-            # رفع Broken pipe با استفاده از آرایه
-            CSV_FILES=("$DATA_DIR"/*.csv)
-            FIRST_FILE=$(basename "${CSV_FILES[0]}")
-            LAST_FILE=$(basename "${CSV_FILES[-1]}")
-            echo "   📄 اولین فایل: $FIRST_FILE"
-            echo "   📄 آخرین فایل: $LAST_FILE"
-            HIGH=0
-            for f in "${CSV_FILES[@]}"; do
-              LINES=$(wc -l < "$f")
-              [ "$LINES" -gt 2500 ] && ((HIGH++))
-            done
-            echo "   ⚡ فایل‌های با بیش از ۲۵۰۰ کندل: $HIGH"
+
+          CSV_FILES=("$DATA_DIR"/*.csv)
+          if [ ! -e "${CSV_FILES[0]}" ]; then
+            echo "❌ FATAL: No CSV files found in '$DATA_DIR'."
+            exit 1
           fi
+
+          FILE_COUNT=${#CSV_FILES[@]}
+          echo "✅ Data directory: $DATA_DIR"
+          echo "   Total CSV files: $FILE_COUNT"
+
+          FIRST=$(basename "${CSV_FILES[0]}")
+          LAST=$(basename "${CSV_FILES[-1]}")
+          echo "   First file: $FIRST"
+          echo "   Last file : $LAST"
+
+          HIGH=0
+          for f in "${CSV_FILES[@]}"; do
+            LINES=$(wc -l < "$f")
+            [ "$LINES" -gt 2500 ] && ((HIGH++))
+          done
+          echo "   Files with >2500 candles: $HIGH"
           echo ""
-          echo "⚙️  ۲. بررسی کدهای اصلی:"
-          for cf in backtest-core.js divergence-detector.js run-backtest.js; do
-            if [ -f "$cf" ]; then echo "   ✅ $cf"; else echo "   ❌ $cf"; exit 1; fi
+
+          # 2. Core JS files
+          echo "⚙️  Core JS files:"
+          for f in backtest-core.js divergence-detector.js run-backtest.js; do
+            if [ -f "$f" ]; then
+              echo "   ✅ $f ($(wc -c < "$f") bytes)"
+            else
+              echo "   ❌ $f MISSING"
+              exit 1
+            fi
           done
           echo ""
-          echo "🧠 ۳. بررسی فایل استراتژی:"
-          if [ -f "strategies/${{ matrix.strategy_file }}" ]; then
-            echo "   ✅ strategies/${{ matrix.strategy_file }}"
+
+          # 3. Strategy file
+          STRAT_PATH="strategies/${{ matrix.strategy_file }}"
+          if [ -f "$STRAT_PATH" ]; then
+            echo "🧠 Strategy: $STRAT_PATH ($(wc -c < "$STRAT_PATH") bytes)"
           else
-            echo "   ❌ فایل استراتژی پیدا نشد."
+            echo "❌ Strategy file not found: $STRAT_PATH"
             exit 1
           fi
+
           echo ""
-          echo "✅ همه چیز آماده است."
+          echo "✅ Pre‑flight checks passed. Starting backtest..."
+        shell: bash
 
       - name: 5. Run backtest for chunk
         continue-on-error: true
         run: |
           END=$(( ${{ matrix.chunk }} + 24 ))
+          echo "🚀 Backtest params: strategy=${{ matrix.strategy_file }} chunk=${{ matrix.chunk }}-$END"
           node run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
@@ -308,41 +355,56 @@ jobs:
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
-      # ------------------------------------------------------------
-      #  عیب‌یاب هوشمند پس از بک‌تست
-      # ------------------------------------------------------------
-      - name: 🩺 6. عیب‌یاب هوشمند پس از بک‌تست
+      # ── Enhanced Post‑flight Debugging ──
+      - name: 🩺 6. Post‑flight Diagnostics
         if: always()
         run: |
           echo ""
           echo "=============================================="
-          echo "   🔍 عیب‌یابی نهایی"
+          echo "   🔍 POST‑FLIGHT DIAGNOSTICS"
           echo "=============================================="
           STRAT="${{ matrix.strategy_file }}"
           START=${{ matrix.chunk }}
           END=$(( ${{ matrix.chunk }} + 24 ))
           RES_DIR="results/${STRAT}/chunk_${START}_${END}"
-          if [ -d "$RES_DIR" ]; then
-            echo "✅ پوشه‌ی نتایج وجود دارد."
-            ls -la "$RES_DIR" || true
-          else
-            echo "❌ پوشه‌ی نتایج ساخته نشد. بررسی علت:"
-            echo "   - وجود پوشه results اصلی: $([ -d results ] && echo بله || echo خیر)"
-            echo "   - وضعیت Job: ${{ job.status }}"
-            echo "   - مجوز نوشتن: در حال بررسی..."
-            touch test_write 2>/dev/null && rm test_write && echo "     ✅ نوشتن ممکن است" || echo "     ❌ نوشتن غیرممکن"
-            echo "   - جستجوی results.enc:"
-            find . -name "results.enc" 2>/dev/null || echo "     یافت نشد"
-          fi
 
-      - name: 7. Commit and push encrypted results
+          if [ -d "$RES_DIR" ]; then
+            echo "✅ Result directory exists: $RES_DIR"
+            ls -laR "$RES_DIR"
+            if [ -f "$RES_DIR/results.enc" ]; then
+              echo "✅ results.enc found ($(wc -c < "$RES_DIR/results.enc") bytes)"
+            else
+              echo "⚠️ results.enc not found inside $RES_DIR"
+            fi
+          else
+            echo "❌ Result directory MISSING: $RES_DIR"
+            echo "   Debugging possible causes:"
+            echo "   - Parent 'results' exists? $([ -d results ] && echo YES || echo NO)"
+            echo "   - Job status: ${{ job.status }}"
+            echo "   - Write permission test:"
+            if touch test_write 2>/dev/null; then
+              echo "      ✅ write allowed"
+              rm test_write
+            else
+              echo "      ❌ write denied"
+            fi
+            echo "   - Searching entire workspace for results.enc:"
+            find . -name "results.enc" -type f 2>/dev/null || echo "      (none found)"
+            echo "   - Any 'results' folders:"
+            find . -name results -type d 2>/dev/null || echo "      (none)"
+          fi
+        shell: bash
+
+      - name: 7. Commit & push results
         if: always()
         run: |
-          if [ -f results/*/chunk_*/results.enc ]; then
+          if find results -name "results.enc" -type f -print -quit | grep -q .; then
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add results/
             git commit -m "backtest chunk ${{ matrix.chunk }} for ${{ matrix.strategy_file }}" || true
             git pull --rebase
             git push
+          else
+            echo "No results.enc found, nothing to push."
           fi
