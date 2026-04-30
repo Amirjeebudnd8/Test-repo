@@ -319,8 +319,9 @@ jobs:
       - name: 17. Build dynamic chunks
         id: build_chunks
         run: |
-          cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-          size=4; n=$(( (cnt + size - 1) / size ))
+         cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
+         cnt=1
+          size=1; n=$(( (cnt + size - 1) / size ))
           chunks="["
           for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done
           chunks+="]"
