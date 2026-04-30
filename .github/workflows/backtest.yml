@@ -68,7 +68,9 @@ jobs:
       - name: 4. Install Python deps
         run: pip install pandas requests
 
-      # 🔓 مکانیزم Unlock
+      # ------------------------------------------------------------
+      #  🔓 مکانیزم Unlock (بازگردانی شده)
+      # ------------------------------------------------------------
       - name: 🔓 Check for unlock request
         id: unlock
         env:
@@ -104,7 +106,9 @@ jobs:
             git push
           fi
 
-      # 🆕 داده‌های ۲۰۲۵/۲۰۲۶
+      # ------------------------------------------------------------
+      #  🆕 داده‌های ۲۰۲۵/۲۰۲۶ (دانلود و بخش‌بندی)
+      # ------------------------------------------------------------
       - name: 5. Prepare 2025/2026 data if needed
         id: prep_2025
         run: |
@@ -129,7 +133,9 @@ jobs:
           git commit -m "mark 2025/2026 prepared" || true
           git push
 
-      # داده‌های اصلی
+      # ------------------------------------------------------------
+      #  آماده‌سازی داده‌های اصلی
+      # ------------------------------------------------------------
       - name: 7. Decrypt data.enc if exists
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
@@ -149,7 +155,7 @@ jobs:
             mkdir -p data && tar -xzf data.tar.gz -C data && rm data.tar.gz
           fi
 
-      - name: 8. Run prepare_data.py
+      - name: 8. Run prepare_data.py (always)
         run: python encrypted_data/prepare_data.py
 
       - name: 9. Rebuild data.enc
@@ -169,22 +175,31 @@ jobs:
           "
           rm data.tar.gz
 
-      # رمزنگاری سورس
+      # ------------------------------------------------------------
+      #  🔒 رمزنگاری مجدد فایل‌های سورس
+      # ------------------------------------------------------------
       - name: 10. Check if source files need re-encryption
         id: source_check
         run: |
-          NEED=false
-          for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
-            [ -f "$f" ] && [ -s "$f" ] && NEED=true && break
-          done
-          echo "need_enc=$NEED" >> $GITHUB_OUTPUT
+          SRC_DIR="encrypted_data/src"
+          NEED_ENC=false
+          if [ -d "$SRC_DIR" ]; then
+            for f in "$SRC_DIR"/*.js "$SRC_DIR"/*.py; do
+              if [ -f "$f" ] && [ -s "$f" ]; then
+                NEED_ENC=true
+                break
+              fi
+            done
+          fi
+          echo "need_enc=$NEED_ENC" >> $GITHUB_OUTPUT
 
       - name: 11. Encrypt source files if needed
         if: steps.source_check.outputs.need_enc == 'true'
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
-          tar -czf src.tar.gz -C encrypted_data/src .
+          SRC_DIR="encrypted_data/src"
+          tar -czf src.tar.gz -C "$SRC_DIR" .
           node -e "
             const crypto=require('crypto'),fs=require('fs');
             const pass=process.env.CODE_PASSWORD;
@@ -203,14 +218,17 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
           git pull --rebase
-          for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
+          SRC_DIR="encrypted_data/src"
+          for f in "$SRC_DIR"/*.js "$SRC_DIR"/*.py; do
             [ -f "$f" ] && echo -n "" > "$f"
           done
-          git add encrypted_data/src/
-          git commit -m "wipe source file contents" || true
+          git add "$SRC_DIR/"
+          git commit -m "wipe source file contents after re-encryption" || true
           git push
 
-      # آماده‌سازی برای بکتست
+      # ------------------------------------------------------------
+      #  آماده‌سازی برای بکتست
+      # ------------------------------------------------------------
       - name: 13. Decrypt src.enc for backtest
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
@@ -228,27 +246,36 @@ jobs:
           "
           tar -xzf src.tar.gz && rm src.tar.gz
 
-      - uses: actions/setup-node@v4
-        with: { node-version: '18' }
-      - run: npm install papaparse
+      - name: 14. Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-      - name: List strategies
+      - name: 15. Install Node deps
+        run: npm install papaparse
+
+      - name: 16. List strategies
         id: list_strategies
         run: |
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: Build dynamic chunks
+      - name: 17. Build dynamic chunks
         id: build_chunks
         run: |
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-          size=25; n=$(( (cnt + size - 1) / size ))
+          size=25
+          n=$(( (cnt + size - 1) / size ))
           chunks="["
-          for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done
+          for ((i=0; i<n; i++)); do
+            s=$((i*size))
+            [ $i -gt 0 ] && chunks+=", "
+            chunks+="$s"
+          done
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
-      - name: Upload prepared artifact
+      - name: 18. Upload prepared environment
         uses: actions/upload-artifact@v4
         with:
           name: prep
@@ -273,14 +300,22 @@ jobs:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
         chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
     steps:
-      - uses: actions/checkout@v5
-        with: { token: ${{ secrets.GITHUB_TOKEN }} }
-      - uses: actions/download-artifact@v4
-        with: { name: prep }
-      - uses: actions/setup-node@v4
-        with: { node-version: '18' }
+      - name: 1. Checkout repository
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 🩺 Pre‑flight Health Check
+      - name: 2. Download prepared environment
+        uses: actions/download-artifact@v4
+        with:
+          name: prep
+
+      - name: 3. Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+
+      - name: 🩺 4. Pre‑flight Health Check
         shell: bash
         run: |
           set +e
@@ -288,20 +323,36 @@ jobs:
           echo "   📊 PRE‑FLIGHT HEALTH REPORT"
           echo "=============================================="
           DATA_DIR="data/All_Coins_Combined"
-          [ ! -d "$DATA_DIR" ] && { echo "❌ FATAL: Data directory missing."; exit 1; }
+          if [ ! -d "$DATA_DIR" ]; then
+            echo "❌ FATAL: Data directory missing."
+            exit 1
+          fi
           mapfile -t CSV_FILES < <(find "$DATA_DIR" -maxdepth 1 -name "*.csv" -print0 | xargs -0 ls -1 2>/dev/null)
-          echo "✅ Total CSV files: ${#CSV_FILES[@]}"
-          [ ${#CSV_FILES[@]} -gt 0 ] && {
-            echo "   First: $(basename "${CSV_FILES[0]}")   Last: $(basename "${CSV_FILES[-1]}")"
-            HIGH=0; for f in "${CSV_FILES[@]}"; do LINES=$(wc -l < "$f"); [ "$LINES" -gt 2500 ] && ((HIGH++)); done
+          FILE_COUNT=${#CSV_FILES[@]}
+          echo "✅ Data directory: $DATA_DIR"
+          echo "   Total CSV files: $FILE_COUNT"
+          if [ "$FILE_COUNT" -gt 0 ]; then
+            FIRST=$(basename "${CSV_FILES[0]}")
+            LAST=$(basename "${CSV_FILES[-1]}")
+            echo "   First file: $FIRST"
+            echo "   Last file : $LAST"
+            HIGH=0
+            for f in "${CSV_FILES[@]}"; do
+              LINES=$(wc -l < "$f") && [ "$LINES" -gt 2500 ] && ((HIGH++))
+            done
             echo "   Files with >2500 candles: $HIGH"
-          }
+          fi
+          echo ""
+          echo "⚙️  Core JS files:"
           for cf in backtest-core.js divergence-detector.js run-backtest.js; do
-            [ -f "$cf" ] || { echo "   ❌ $cf MISSING"; exit 1; }
+            [ -f "$cf" ] && echo "   ✅ $cf" || { echo "   ❌ $cf MISSING"; exit 1; }
           done
-          echo "✅ All checks passed."
+          echo ""
+          echo "🧠 Strategy: strategies/${{ matrix.strategy_file }}"
+          [ -f "strategies/${{ matrix.strategy_file }}" ] || { echo "   ❌ MISSING"; exit 1; }
+          echo "✅ All health checks passed."
 
-      - name: Run backtest for chunk
+      - name: 5. Run backtest for chunk
         continue-on-error: true
         run: |
           END=$(( ${{ matrix.chunk }} + 24 ))
@@ -312,17 +363,31 @@ jobs:
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
-      - name: 🩺 Post‑flight Diagnostics
+      - name: 🩺 6. Post‑flight Diagnostics
         if: always()
         run: |
-          RES_DIR="results/${{ matrix.strategy_file }}/chunk_${{ matrix.chunk }}_$(( ${{ matrix.chunk }} + 24 ))"
-          if [ -d "$RES_DIR" ]; then echo "✅ $RES_DIR exists"; ls -la "$RES_DIR"; else echo "❌ Result dir missing"; fi
+          STRAT="${{ matrix.strategy_file }}"
+          START=${{ matrix.chunk }}
+          END=$(( ${{ matrix.chunk }} + 24 ))
+          RES_DIR="results/${STRAT}/chunk_${START}_${END}"
+          if [ -d "$RES_DIR" ]; then
+            echo "✅ $RES_DIR exists"
+            ls -la "$RES_DIR"
+          else
+            echo "❌ Result directory missing. Debug:"
+            echo "   results/ exists? $([ -d results ] && echo yes || echo no)"
+            echo "   write test: $(touch test_write 2>/dev/null && rm test_write && echo ok || echo fail)"
+            find . -name "results.enc" 2>/dev/null || echo "   no results.enc found"
+          fi
 
-      - name: Commit and push results
+      - name: 7. Commit and push results
         if: always()
         run: |
           if find results -name "results.enc" -print -quit | grep -q .; then
-            git config user.name "github-actions[bot]"; git config user.email "actions@github.com"
-            git add results/; git commit -m "backtest chunk ${{ matrix.chunk }} for ${{ matrix.strategy_file }}" || true
-            git pull --rebase; git push
+            git config user.name "github-actions[bot]"
+            git config user.email "actions@github.com"
+            git add results/
+            git commit -m "backtest chunk ${{ matrix.chunk }} for ${{ matrix.strategy_file }}" || true
+            git pull --rebase
+            git push
           fi
