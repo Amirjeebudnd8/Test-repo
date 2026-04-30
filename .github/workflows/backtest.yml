@@ -98,7 +98,16 @@ jobs:
               cp -r temp_src_restore/* encrypted_data/src/
               rm -rf temp_src_restore src.tar.gz
               echo "✅ فایل‌های سورس استخراج شدند."
+
+              # 🛡️ قفل‌گذاری پوشه – فقط خواندنی برای همه، غیرقابل حذف
+              chmod -R 555 encrypted_data/src
+              echo "🛡️ پوشه src قفل شد (read-only)."
+
+              # گذاشتن پرچم آنلاک برای جلوگیری از رمزنگاری مجدد در اجراهای بعدی
+              touch encrypted_data/src/.unlocked.flag
+              echo "🏁 پرچم .unlocked.flag ساخته شد."
             fi
+
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git pull --rebase
@@ -159,10 +168,6 @@ jobs:
             mkdir -p data && tar -xzf data.tar.gz -C data && rm data.tar.gz
           fi
 
-      # 8. Run prepare_data.py (always)  →  غیرفعال شد
-      # - name: 8. Run prepare_data.py (always)
-      #   run: python encrypted_data/prepare_data.py
-
       - name: 9. Rebuild data.enc
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
@@ -181,22 +186,30 @@ jobs:
           rm data.tar.gz
 
       # ------------------------------------------------------------
-      #  🔒 رمزنگاری مجدد – فقط وقتی قفل باز نشده باشد
+      #  🔒 رمزنگاری مجدد – فقط وقتی پرچم آنلاک وجود نداشته باشد
       # ------------------------------------------------------------
       - name: 10. Check if source files need re-encryption
         id: source_check
         run: |
           NEED=false
-          for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
-            [ -f "$f" ] && [ -s "$f" ] && NEED=true && break
-          done
+          # اگر پرچم .unlocked.flag وجود داشته باشد، هرگز رمزنگاری نکن
+          if [ ! -f encrypted_data/src/.unlocked.flag ]; then
+            for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
+              [ -f "$f" ] && [ -s "$f" ] && NEED=true && break
+            done
+          fi
           echo "need_enc=$NEED" >> $GITHUB_OUTPUT
 
       - name: 11. Encrypt source files if needed
-        if: steps.source_check.outputs.need_enc == 'true' && steps.unlock.outputs.unlocked != 'true'
+        if: steps.source_check.outputs.need_enc == 'true'
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
+          # قبل از رمزنگاری، پوشه را قابل نوشتن کن (اگر قفل بود)
+          if [ -d encrypted_data/src ]; then
+            chmod -R 755 encrypted_data/src
+          fi
+
           tar -czf src.tar.gz -C encrypted_data/src .
           node -e "
             const crypto=require('crypto'),fs=require('fs');
@@ -210,17 +223,35 @@ jobs:
           "
           rm src.tar.gz
 
+          # بعد از رمزنگاری، دوباره قفل کن (اگر پرچم نبود)
+          if [ ! -f encrypted_data/src/.unlocked.flag ]; then
+            chmod -R 555 encrypted_data/src
+          fi
+
       - name: 12. Wipe source files content (keep files)
-        if: steps.source_check.outputs.need_enc == 'true' && steps.unlock.outputs.unlocked != 'true'
+        if: steps.source_check.outputs.need_enc == 'true'
         run: |
+          # قفل را موقتاً بردار
+          if [ -d encrypted_data/src ]; then
+            chmod -R 755 encrypted_data/src
+          fi
+
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
           git pull --rebase
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
             [ -f "$f" ] && echo -n "" > "$f"
           done
+
+          # پرچم آنلاک را پاک کن (اگر وجود داشت)
+          rm -f encrypted_data/src/.unlocked.flag
+
           git add encrypted_data/src/
           git commit -m "wipe source file contents" || true
+
+          # دوباره قفل کن
+          chmod -R 555 encrypted_data/src
+
           git push
 
       # ------------------------------------------------------------
