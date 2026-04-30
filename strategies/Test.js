@@ -1,4 +1,3 @@
-
 function customStrategy(data, index, breakPointsParam, ichimokuParam) {
     const trendLines = getTrendLines();
     const downTrendLines = trendLines.primaryDown || [];
