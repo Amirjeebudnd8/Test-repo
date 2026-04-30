@@ -23,12 +23,13 @@ if (!strategyFile || !fs.existsSync(strategyFile)) {
 const strategyName = path.basename(strategyFile, '.js');
 const outputDir = path.join(__dirname, 'results', strategyName, `chunk_${startChunk}_${endChunk}`);
 
+// اگر پوشه‌ی نتایج از قبل وجود داشت، کار تمام است
 if (fs.existsSync(path.join(outputDir, 'results.enc'))) {
   console.log(`⏩ چانک ${startChunk} تا ${endChunk} قبلاً انجام شده. رد شد.`);
   process.exit(0);
 }
 
-// ==================== بخش روند شارپ ====================
+// ==================== بخش روند شارپ (همان script.js) ====================
 const SHARP = {
   minCandlesRequired: 5,
   consecutiveCandles: 5,
@@ -175,7 +176,7 @@ const backtestCore = require(corePath);
 let divergenceDetector = null;
 if (fs.existsSync(divPath)) divergenceDetector = require(divPath);
 
-// ==================== تابع رمزنگاری ====================
+// ==================== تابع رمزنگاری نتایج (اصلاح‌شده) ====================
 function encryptResults(outputDir, password) {
   const tarPath = outputDir + '.tar.gz';
   const encPath = path.join(outputDir, 'results.enc');
@@ -188,8 +189,23 @@ function encryptResults(outputDir, password) {
   const input = fs.readFileSync(tarPath);
   const encrypted = Buffer.concat([cipher.update(input), cipher.final()]);
   fs.writeFileSync(encPath, Buffer.concat([iv, encrypted]));
+
+  // حذف فایل موقت tar
   fs.unlinkSync(tarPath);
-  fs.rmSync(outputDir, { recursive: true, force: true });
+
+  // حذف فایل‌های JSON میانی (نگه داشتن پوشه و results.enc)
+  const files = fs.readdirSync(outputDir);
+  for (const file of files) {
+    if (file !== 'results.enc') {
+      const filePath = path.join(outputDir, file);
+      const stat = fs.statSync(filePath);
+      if (stat.isDirectory()) {
+        fs.rmSync(filePath, { recursive: true, force: true });
+      } else {
+        fs.unlinkSync(filePath);
+      }
+    }
+  }
 }
 
 // ==================== اجرای اصلی ====================
@@ -247,6 +263,7 @@ function encryptResults(outputDir, password) {
   fs.writeFileSync(path.join(outputDir, 'trades_summary.json'), JSON.stringify(summary, null, 2));
   fs.writeFileSync(path.join(outputDir, '1.json'), strategyCode, 'utf8');
 
+  // رمزنگاری نتایج (پوشه حفظ می‌شود)
   encryptResults(outputDir, resultsPassword);
   console.log(`✅ results.enc ذخیره شد.`);
 })().catch(err => { console.error(err); process.exit(1); });
