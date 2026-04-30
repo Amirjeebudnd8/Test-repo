@@ -128,9 +128,10 @@ def download_zips():
     print(f"\n🎯 دانلود کامل شد. تعداد کل فایل‌های ZIP دریافت شده: {total}")
 
 def main():
-    if os.path.exists(COMBINED_DIR) and os.listdir(COMBINED_DIR):
-        print("✅ داده‌ها از قبل موجودند. نیاز به پردازش نیست.")
-        return
+    # ⚠️ شرط زیر را حذف کردیم
+    # if os.path.exists(COMBINED_DIR) and os.listdir(COMBINED_DIR):
+    #     print("✅ داده‌ها از قبل موجودند. نیاز به پردازش نیست.")
+    #     return
 
     os.makedirs(COMBINED_DIR, exist_ok=True)
 
