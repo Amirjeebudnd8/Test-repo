@@ -47,40 +47,38 @@ jobs:
       strategies: ${{ steps.list_strategies.outputs.files }}
       chunks: ${{ steps.build_chunks.outputs.chunks }}
     steps:
-      - name: 1. Checkout repository
-        uses: actions/checkout@v5
+      - uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: 2. Cache ZIP files
-        uses: actions/cache@v4
+      - uses: actions/cache@v4
         with:
           path: zips
           key: zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-${{ github.run_id }}
           restore-keys: |
             zips-${{ hashFiles('encrypted_data/prepare_data.py') }}-
 
-      - name: 3. Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: '3.10'
 
-      - name: 4. Install Python deps
+      - name: Install Python deps
         run: pip install pandas requests
 
       # ------------------------------------------------------------
-      #  🔓 مکانیزم باز کردن قفل فایل‌های سورس
+      #  🔓 مکانیزم Unlock (اصلاح‌شده)
       # ------------------------------------------------------------
       - name: 🔓 Check for unlock request
         id: unlock
+        env:
+          CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "actions@github.com"
-          
           UNLOCK_FILE="encrypted_data/src/unlock.txt"
           if [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
-            echo "🔓 درخواست بازگشایی قفل شناسایی شد. فایل‌های سورس بازیابی می‌شوند."
+            echo "🔓 باز کردن قفل..."
             if [ -f encrypted_data/src.enc ]; then
+              # استخراج فایل‌ها در یک پوشه‌ی موقت برای جلوگیری از پاک شدن پوشه‌ی src
+              mkdir -p temp_src_restore
               node -e "
                 const crypto=require('crypto'),fs=require('fs');
                 const pass=process.env.CODE_PASSWORD;
@@ -92,25 +90,48 @@ jobs:
                 const dec=Buffer.concat([decipher.update(enc),decipher.final()]);
                 fs.writeFileSync('src.tar.gz',dec);
               "
-              tar -xzf src.tar.gz -C encrypted_data/src
-              rm src.tar.gz
-              echo "✅ فایل‌های سورس از src.enc استخراج شدند."
+              tar -xzf src.tar.gz -C temp_src_restore
+              # انتقال محتوا به src (فقط فایل‌ها، نه پوشه‌ی src را پاک کند)
+              cp -r temp_src_restore/* encrypted_data/src/
+              rm -rf temp_src_restore src.tar.gz
+              echo "✅ فایل‌های سورس بازیابی شدند."
             fi
+            git config user.name "github-actions[bot]"
+            git config user.email "actions@github.com"
             git pull --rebase
             rm -f "$UNLOCK_FILE"
             git add "$UNLOCK_FILE"
             git commit -m "remove unlock flag after restoring source files" || true
             git push
           else
-            echo "🔒 حالت عادی. فایل unlock.txt با مقدار '1' یافت نشد."
+            echo "🔒 فایل unlock.txt یافت نشد."
           fi
-        env:
-          CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
 
       # ------------------------------------------------------------
-      #  Data preparation
+      #  دانلود فایل‌های ZIP مخصوص ۲۰۲۵ و ۲۰۲۶ (فقط یکبار)
       # ------------------------------------------------------------
-      - name: 5. Decrypt data.enc if exists
+      - name: Download 2025/2026 ZIPs if needed
+        id: download_2025
+        run: |
+          FLAG_FILE="encrypted_data/data_2025_2026_zips_downloaded"
+          if [ ! -f "$FLAG_FILE" ]; then
+            echo "⬇️ دانلود فایل‌های ZIP ۲۰۲۵/۲۰۲۶..."
+            python encrypted_data/download_2025_2026_zips.py
+            touch "$FLAG_FILE"
+            git add "$FLAG_FILE"
+            git config user.name "github-actions[bot]"
+            git config user.email "actions@github.com"
+            git pull --rebase
+            git commit -m "mark 2025/2026 zips downloaded" || true
+            git push
+          else
+            echo "✅ فایل‌های ۲۰۲۵/۲۰۲۶ قبلاً دانلود شده‌اند."
+          fi
+
+      # ------------------------------------------------------------
+      #  آماده‌سازی داده‌ها (همیشگی)
+      # ------------------------------------------------------------
+      - name: Decrypt data.enc if exists
         id: data_decrypt
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
@@ -135,10 +156,10 @@ jobs:
             echo "had_data=false" >> $GITHUB_OUTPUT
           fi
 
-      - name: 6. Run prepare_data.py (always)
+      - name: Run prepare_data.py (always)
         run: python encrypted_data/prepare_data.py
 
-      - name: 7. Rebuild data.enc
+      - name: Rebuild data.enc
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
@@ -160,7 +181,7 @@ jobs:
       # ------------------------------------------------------------
       #  🔒 رمزنگاری و خالی‌سازی فایل‌های سورس
       # ------------------------------------------------------------
-      - name: 8. Check if source files need re-encryption
+      - name: Check if source files need re-encryption
         id: source_check
         run: |
           SRC_DIR="encrypted_data/src"
@@ -175,7 +196,7 @@ jobs:
           fi
           echo "need_enc=$NEED_ENC" >> $GITHUB_OUTPUT
 
-      - name: 9. Encrypt source files if needed
+      - name: Encrypt source files if needed
         if: steps.source_check.outputs.need_enc == 'true'
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
@@ -194,25 +215,24 @@ jobs:
           "
           rm src.tar.gz
 
-      - name: 10. Wipe source files content (keep files)
+      - name: Wipe source files content (keep files)
         if: steps.source_check.outputs.need_enc == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
-          
+          git pull --rebase
           SRC_DIR="encrypted_data/src"
           for f in "$SRC_DIR"/*.js "$SRC_DIR"/*.py; do
             [ -f "$f" ] && echo -n "" > "$f"
           done
-          git pull --rebase
           git add "$SRC_DIR/"
-          git commit -m "wipe source file contents after re-encryption" || true
+          git commit -m "wipe source file contents" || true
           git push
 
       # ------------------------------------------------------------
-      #  Decrypt for backtest job
+      #  رمزگشایی src.enc برای Job بعدی
       # ------------------------------------------------------------
-      - name: 11. Decrypt src.enc for backtest
+      - name: Decrypt src.enc for backtest
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
@@ -230,21 +250,20 @@ jobs:
           tar -xzf src.tar.gz
           rm src.tar.gz
 
-      - name: 12. Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '18'
 
-      - name: 13. Install Node deps
+      - name: Install Node deps
         run: npm install papaparse
 
-      - name: 14. List strategies
+      - name: List strategies
         id: list_strategies
         run: |
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: 15. Build dynamic chunks
+      - name: Build dynamic chunks
         id: build_chunks
         run: |
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
@@ -259,7 +278,7 @@ jobs:
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
-      - name: 16. Upload prepared artifact
+      - name: Upload prepared artifact
         uses: actions/upload-artifact@v4
         with:
           name: prep
