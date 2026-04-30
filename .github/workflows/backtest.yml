@@ -316,16 +316,10 @@ jobs:
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: 17. Build dynamic chunks
+      - name: 17. Build dynamic chunks (DEBUG – only 1 file)
         id: build_chunks
         run: |
-         cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-         cnt=1
-          size=1; n=$(( (cnt + size - 1) / size ))
-          chunks="["
-          for ((i=0; i<n; i++)); do s=$((i*size)); [ $i -gt 0 ] && chunks+=", "; chunks+="$s"; done
-          chunks+="]"
-          echo "chunks=$chunks" >> $GITHUB_OUTPUT
+          echo "chunks=[0]" >> $GITHUB_OUTPUT
 
       - name: 18. Upload prepared environment
         uses: actions/upload-artifact@v4
@@ -404,10 +398,10 @@ jobs:
           [ -f "strategies/${{ matrix.strategy_file }}" ] || { echo "   ❌ MISSING"; exit 1; }
           echo "✅ All health checks passed."
 
-      - name: 5. Run backtest for chunk
+      - name: 5. Run backtest for chunk (DEBUG – only 1 file)
         continue-on-error: true
         run: |
-          END=$(( ${{ matrix.chunk }} + 24 ))
+          END=${{ matrix.chunk }}
           node run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
