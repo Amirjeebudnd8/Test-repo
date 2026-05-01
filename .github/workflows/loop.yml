@@ -2,7 +2,6 @@ name: Loop Workflow
 
 on:
   workflow_dispatch:
-  # این وردفلو توسط وردفلو اصلی فراخوانی می‌شود
 
 permissions:
   contents: write
