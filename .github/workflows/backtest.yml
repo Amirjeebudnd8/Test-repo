@@ -60,7 +60,7 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  UNLOCK
+      #  UNLOCK (نسخه کامل و تست شده)
       # ------------------------------------------------------------
       - name: 🔓 Unlock Handler
         id: unlock
@@ -72,7 +72,6 @@ jobs:
           UNLOCK_FILE="encrypted_data/src/unlock.txt"
           FLAG_FILE="encrypted_data/src/.unlocked.flag"
 
-          # [۳] unlock = 3
           if [ -f "$UNLOCK_FILE" ] && grep -q "^3$" "$UNLOCK_FILE"; then
             echo "📊 unlock=3"
             find results -name "results.enc" -type f | while read ENC; do
@@ -86,7 +85,6 @@ jobs:
             git pull --rebase && git push
             rm -f "$UNLOCK_FILE" "$FLAG_FILE"
 
-          # [۱] unlock = 1
           elif [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
             echo "🔓 unlock=1"
             echo "unlocked=true" >> $GITHUB_OUTPUT
@@ -98,17 +96,30 @@ jobs:
               mkdir -p encrypted_data/src
               cp -r temp_src_restore/* encrypted_data/src/ && rm -rf temp_src_restore src.tar.gz
               echo "✅ سورس استخراج شد."
-              touch encrypted_data/src/.unlocked.flag
-              echo "🏁 پرچم ساخته شد."
+              touch encrypted_data/src/.unlocked.flag && echo "🏁 پرچم ساخته شد."
             fi
 
             git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
-            git stash --include-untracked 2>/dev/null || true
+            
+            # اضافه کردن همه تغییرات جدید
             git add encrypted_data/src/*.js encrypted_data/src/.unlocked.flag 2>/dev/null || true
-            rm -f "$UNLOCK_FILE"
+            git add "$UNLOCK_FILE" 2>/dev/null || true
+            
+            # اگر فایل unlock.txt وجود دارد، آن را از گیت حذف کن
+            if [ -f "$UNLOCK_FILE" ]; then
+              rm -f "$UNLOCK_FILE"
+              git rm --cached "$UNLOCK_FILE" 2>/dev/null || true
+              git add "$UNLOCK_FILE" 2>/dev/null || true
+            fi
+            
+            # commit کردن تغییرات
             git commit -m "unlock source files" || true
+            
+            # stash کردن برای جلوگیری از conflict
+            git stash --include-untracked 2>/dev/null || true
             git pull --rebase
             git stash pop 2>/dev/null || true
+            
             git push
 
           else
