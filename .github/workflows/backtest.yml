@@ -60,7 +60,7 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  UNLOCK (نسخه کامل و تست شده)
+      #  UNLOCK (اصلاح شده با بررسی وجود پوشه results)
       # ------------------------------------------------------------
       - name: 🔓 Unlock Handler
         id: unlock
@@ -100,13 +100,16 @@ jobs:
             fi
 
             git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
+            
             git add encrypted_data/src/*.js encrypted_data/src/.unlocked.flag 2>/dev/null || true
             git add "$UNLOCK_FILE" 2>/dev/null || true
+            
             if [ -f "$UNLOCK_FILE" ]; then
               rm -f "$UNLOCK_FILE"
               git rm --cached "$UNLOCK_FILE" 2>/dev/null || true
               git add "$UNLOCK_FILE" 2>/dev/null || true
             fi
+            
             git commit -m "unlock source files" || true
             git stash --include-untracked 2>/dev/null || true
             git pull --rebase
@@ -115,11 +118,15 @@ jobs:
 
           else
             echo "🧹 پاکسازی JSONهای نتایج"
-            find results -type f ! -name "results.enc" \( -name "*.json" -o -name "*.tar.gz" \) -delete
-            if find results -type f ! -name "results.enc" | grep -q .; then
-              git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
-              git add results/ && git commit -m "cleanup results" || true
-              git pull --rebase && git push
+            if [ -d "results" ]; then
+              find results -type f ! -name "results.enc" \( -name "*.json" -o -name "*.tar.gz" \) -delete
+              if find results -type f ! -name "results.enc" | grep -q .; then
+                git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
+                git add results/ && git commit -m "cleanup results" || true
+                git pull --rebase && git push
+              fi
+            else
+              echo "📁 پوشه results وجود ندارد، نیازی به پاکسازی نیست."
             fi
             echo "🔒 حالت عادی (no unlock)"
           fi
@@ -336,7 +343,7 @@ jobs:
           fi
 
   # ============================================================
-  # NEW JOB: یکپارچه‌سازی رمزنگاری کل پوشه results
+  # یکپارچه‌سازی رمزنگاری کل پوشه results
   # ============================================================
   finalize-encryption:
     needs: [backtest]
