@@ -1,0 +1,46 @@
+name: Loop Workflow
+
+on:
+  workflow_dispatch:
+  # این وردفلو توسط وردفلو اصلی فراخوانی می‌شود
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  restart-main:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: دریافت کد مخزن
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: خواندن فایل وضعیت progress.json
+        id: read_progress
+        run: |
+          if [ -f "progress.json" ]; then
+            echo "فایل وضعیت وجود دارد."
+            SHUTDOWN_FLAG=$(jq -r '.shutdown // false' progress.json)
+            echo "shutdown_flag=$SHUTDOWN_FLAG" >> $GITHUB_OUTPUT
+          else
+            echo "shutdown_flag=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: اگر وردفلو اصلی علامت خاموش شدن داده باشد، یک دقیقه صبر کن
+        if: steps.read_progress.outputs.shutdown_flag == 'true'
+        run: |
+          echo "علامت خاموش شدن دریافت شد. منتظر می‌مانیم تا وردفلو اصلی واقعاً خاموش شود..."
+          sleep 60
+          echo "انتظار تمام شد. اکنون وردفلو اصلی را دوباره راه‌اندازی می‌کنیم."
+
+      - name: فراخوانی مجدد وردفلو اصلی (backtest.yml)
+        run: |
+          gh workflow run backtest.yml --ref ${{ github.ref_name }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: پایان کار ردفلو فرعی
+        run: echo "ردفلو فرعی کار خود را انجام داد و اکنون خاموش می‌شود."
