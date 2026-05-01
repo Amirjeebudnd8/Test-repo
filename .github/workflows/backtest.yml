@@ -343,11 +343,11 @@ jobs:
           fi
 
   # ============================================================
-  # یکپارچه‌سازی رمزنگاری کل پوشه results
+  # رمزنگاری یکپارچه – فقط در صورت وجود فایل results.enc
   # ============================================================
   finalize-encryption:
     needs: [backtest]
-    if: always()
+    if: always() && hashFiles('results.enc') != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -397,8 +397,13 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
-          git add results.enc
-          git rm -rf results/ 2>/dev/null || true
-          git commit -m "Finalize: single encrypted results.enc" || echo "No changes to commit"
-          git pull --rebase
-          git push
+          # فقط در صورتی که فایل وجود داشته باشد، آن را add کن
+          if [ -f "results.enc" ]; then
+            git add results.enc
+            git rm -rf results/ 2>/dev/null || true
+            git commit -m "Finalize: single encrypted results.enc" || echo "No changes to commit"
+            git pull --rebase
+            git push
+          else
+            echo "No results.enc to commit. Workflow completed without encryption."
+          fi
