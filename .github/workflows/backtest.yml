@@ -209,7 +209,7 @@ jobs:
       - name: 12. Wipe source files content (keep files)
         if: steps.source_analysis.outputs.one_full == 'true' && steps.unlock.outputs.unlocked != 'true'
         run: |
-          git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]" && git config.user.email "actions@github.com"
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do [ -f "$f" ] && echo -n "" > "$f"; done
           rm -f encrypted_data/src/.unlocked.flag
           git add encrypted_data/src/ encrypted_data/src.enc
@@ -347,7 +347,7 @@ jobs:
   # ============================================================
   finalize-encryption:
     needs: [backtest]
-    if: always() && hashFiles('results.enc') != ''
+    if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
@@ -356,11 +356,22 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Check if results.enc exists
+        id: check_results
+        run: |
+          if [ -f "results.enc" ]; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+          fi
+
       - name: Download all artifacts (if any)
+        if: steps.check_results.outputs.exists == 'true'
         uses: actions/download-artifact@v4
         continue-on-error: true
 
       - name: Encrypt entire results folder
+        if: steps.check_results.outputs.exists == 'true'
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
         run: |
@@ -384,26 +395,26 @@ jobs:
           rm -f results.tar.gz
           echo "✅ results.enc created."
 
-      - name: Remove unencrypted results folder (keep .enc)
+      - name: Remove unencrypted results folder
+        if: steps.check_results.outputs.exists == 'true'
         run: |
           if [ -f "results.enc" ]; then
             rm -rf results
             echo "🧹 Unencrypted results folder removed."
-          else
-            echo "⚠️ results.enc not found, keeping results folder."
           fi
 
       - name: Commit and push final encrypted results
+        if: steps.check_results.outputs.exists == 'true'
         run: |
           git config user.name "github-actions[bot]"
-          git config user.email "actions@github.com"
-          # فقط در صورتی که فایل وجود داشته باشد، آن را add کن
-          if [ -f "results.enc" ]; then
-            git add results.enc
-            git rm -rf results/ 2>/dev/null || true
-            git commit -m "Finalize: single encrypted results.enc" || echo "No changes to commit"
-            git pull --rebase
-            git push
-          else
-            echo "No results.enc to commit. Workflow completed without encryption."
-          fi
+          git config.user.email "actions@github.com"
+          git add results.enc
+          git rm -rf results/ 2>/dev/null || true
+          git commit -m "Finalize: single encrypted results.enc" || echo "No changes to commit"
+          git pull --rebase
+          git push
+
+      - name: No results to commit
+        if: steps.check_results.outputs.exists == 'false'
+        run: |
+          echo "No results.enc found. Skipping encryption and commit."
