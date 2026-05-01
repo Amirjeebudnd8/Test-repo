@@ -6,6 +6,7 @@
  * - پارامترهای خروجی مطابق با نیاز run-backtest.js (ایچیموکو، خطوط روند، واگرایی، روند شارپ)
  */
 
+
 function customStrategy(data, index, breakPointsParam) {
     const LOOKBACK = 2500;
     if (index < LOOKBACK) return null;
