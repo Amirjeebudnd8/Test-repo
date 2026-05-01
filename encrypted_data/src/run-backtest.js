@@ -3,7 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const Papa = require('papaparse');
 
-console.log('[RUN-BACKTEST] ========== START ==========');
+console.log('[1] ========== START run-backtest.js ==========');
 
 // ==================== آرگومان‌های ورودی ====================
 const argv = process.argv.slice(2);
@@ -17,7 +17,7 @@ const startIndex = parseInt(getArg('--start-index') || '0');
 const endIndex   = parseInt(getArg('--end-index') || '0');
 const dataDir    = getArg('--data-dir') || path.join(__dirname, 'data');
 
-console.log(`[RUN-BACKTEST] strategyFile=${strategyFile}, startIndex=${startIndex}, endIndex=${endIndex}, dataDir=${dataDir}`);
+console.log('[2] strategyFile=' + strategyFile + ' startIndex=' + startIndex + ' endIndex=' + endIndex);
 
 if (!strategyFile || !fs.existsSync(strategyFile)) {
   console.log('ℹ️  فایل استراتژی وجود ندارد.');
@@ -26,7 +26,7 @@ if (!strategyFile || !fs.existsSync(strategyFile)) {
 
 const strategyName = path.basename(strategyFile, '.js');
 const strategyCode = fs.readFileSync(strategyFile, 'utf8');
-console.log(`[RUN-BACKTEST] strategyName=${strategyName}, strategyCode length=${strategyCode.length}`);
+console.log('[3] strategyName=' + strategyName + ' codeLength=' + strategyCode.length);
 
 // --- انتخاب یک فایل بر اساس ایندکس ---
 function getFileNameByIndex(dataDir, index) {
@@ -44,8 +44,6 @@ function getFileNameByIndex(dataDir, index) {
 }
 
 const fileName = getFileNameByIndex(dataDir, startIndex);
-console.log(`[RUN-BACKTEST] Selected CSV file: ${fileName}`);
-
 const outputDir = path.join(__dirname, 'results', strategyName, fileName);
 if (fs.existsSync(path.join(outputDir, 'results.enc'))) {
   console.log(`⏩ ${fileName} قبلاً انجام شده. رد شد.`);
@@ -71,13 +69,13 @@ function loadSingleFile(dataDir, fileName) {
       });
     }
   }
-  console.log(`[RUN-BACKTEST] Loaded ${allData.length} candles from ${fileName}`);
+  console.log(`  ✔ ${fileName} (${allData.length} کندل)`);
   return allData;
 }
 
 const marketData = loadSingleFile(dataDir, fileName);
 if (marketData.length === 0) process.exit(0);
-console.log(`[RUN-BACKTEST] marketData length: ${marketData.length}`);
+console.log('[4] marketData.length=' + marketData.length);
 
 // ==================== بارگذاری ماژول‌های اصلی ====================
 const corePath = path.join(__dirname, 'backtest-core.js');
@@ -87,9 +85,9 @@ const backtestCore = require(corePath);
 let divergenceDetector = null;
 if (fs.existsSync(divPath)) {
   divergenceDetector = require(divPath);
-  console.log('[RUN-BACKTEST] divergence-detector.js loaded');
+  console.log('[5] divergence-detector.js loaded');
 } else {
-  console.log('[RUN-BACKTEST] divergence-detector.js NOT found');
+  console.log('[5] divergence-detector.js NOT found');
 }
 
 // ==================== بخش روند شارپ (اضافه شده از الکترون) ====================
@@ -234,38 +232,36 @@ const safeParse = (v, def=0) => {
 // ==================== اجرای اصلی ====================
 (async () => {
   const resultsPassword = process.env.RESULTS_PASSWORD || 'Amir1362Amir';
-  console.log('[RUN-BACKTEST] Starting backtest core...');
+  console.log('[6] Starting main execution...');
 
   // 1. شناسایی خطوط روند (بدون تغییر)
-  console.log('[RUN-BACKTEST] Detecting trendlines...');
+  console.log('[7] Detecting trendlines...');
   const trendRes = await backtestCore.detectTrendLinesAdvanced(marketData, { pivotPeriod: 5, precision: 0.001, minTouchPoints: 3 });
   const trendLines = trendRes.trendLines;
-  console.log(`[RUN-BACKTEST] Trendlines detected: primaryUp=${trendLines.primaryUp?.length || 0}, primaryDown=${trendLines.primaryDown?.length || 0}`);
+  console.log('[8] Trendlines: primaryUp=' + (trendLines.primaryUp?.length || 0) + ' primaryDown=' + (trendLines.primaryDown?.length || 0));
 
   // 2. تشخیص واگرایی (بدون تغییر)
   let divergenceSignals = [];
   if (divergenceDetector) {
-    console.log('[RUN-BACKTEST] Running divergence detection for RSI...');
+    console.log('[9] Running RSI divergence...');
     const rsi = divergenceDetector.runDivergenceDetection({ marketData, indicator: 'RSI', sendMessage: ()=>{} });
-    console.log(`[RUN-BACKTEST] RSI divergence signals count: ${rsi.length}`);
-    console.log('[RUN-BACKTEST] Running divergence detection for MACD...');
+    console.log('[10] RSI divergence count=' + rsi.length);
+    console.log('[11] Running MACD divergence...');
     const macd = divergenceDetector.runDivergenceDetection({ marketData, indicator: 'MACD', sendMessage: ()=>{} });
-    console.log(`[RUN-BACKTEST] MACD divergence signals count: ${macd.length}`);
+    console.log('[12] MACD divergence count=' + macd.length);
     divergenceSignals = [...rsi, ...macd];
-    console.log(`[RUN-BACKTEST] Total divergence signals (RSI+MACD): ${divergenceSignals.length}`);
+    console.log('[13] Total divergence signals=' + divergenceSignals.length);
     if (divergenceSignals.length > 0) {
-      console.log('[RUN-BACKTEST] First divergence signal sample:', JSON.stringify(divergenceSignals[0]));
-    } else {
-      console.log('[RUN-BACKTEST] WARNING: No divergence signals found at all!');
+      console.log('[14] Sample first divergence signal:', JSON.stringify(divergenceSignals[0]));
     }
   } else {
-    console.log('[RUN-BACKTEST] divergenceDetector not available, skipping divergence');
+    console.log('[9-13] divergenceDetector missing');
   }
 
   // 3. تشخیص روند شارپ (اضافه شده)
-  console.log('[RUN-BACKTEST] Detecting sharp trends...');
+  console.log('[15] Detecting sharp trends...');
   const sharpTrends = detectSharpTrends(marketData);
-  console.log(`[RUN-BACKTEST] Sharp trends detected: ${sharpTrends.length}`);
+  console.log('[16] Sharp trends count=' + sharpTrends.length);
 
   // 4. خواندن کد استراتژی
   const strategyCode = fs.readFileSync(strategyFile, 'utf8');
@@ -308,8 +304,9 @@ const safeParse = (v, def=0) => {
 
   const sampleIndex = Math.min(50, marketData.length - 1);
   const strategySettings = extractStrategySettings(strategyCode, marketData, sampleIndex);
+  console.log('[17] Strategy settings extracted, sampleIndex=' + sampleIndex);
 
-  // بررسی پارامترهای اجباری
+  // بررسی پارامترهای اجباری (همان کد قبلی شما، فقط لاگ اضافه شده)
   const requiredParams = [
     { path: 'ichimoku.tenkanPeriod', type: 'number' },
     { path: 'ichimoku.kijunPeriod', type: 'number' },
@@ -402,12 +399,10 @@ const safeParse = (v, def=0) => {
     backtestOptions.sharpTrends = updatedSharpTrends;
   }
 
-  // لاگ نهایی قبل از اجرای بکتست
-  console.log('[RUN-BACKTEST] Calling backtestCore.runBacktest with options.breakPoints.divergenceSignals length = ' + (backtestOptions.breakPoints.divergenceSignals?.length || 0));
-  console.log('[RUN-BACKTEST] backtestOptions.breakPoints keys:', Object.keys(backtestOptions.breakPoints));
-  
+  console.log('[18] Final breakPoints.divergenceSignals length = ' + (backtestOptions.breakPoints.divergenceSignals?.length || 0));
+  console.log('[19] Calling backtestCore.runBacktest...');
   const result = await backtestCore.runBacktest(marketData, backtestOptions);
-  console.log('[RUN-BACKTEST] Backtest finished. Trades count = ' + (result.trades?.length || 0));
+  console.log('[20] Backtest finished. Trades count = ' + (result.trades?.length || 0));
 
   fs.mkdirSync(outputDir, { recursive: true });
 
@@ -535,5 +530,5 @@ const safeParse = (v, def=0) => {
 
   encryptResults(outputDir, resultsPassword);
   console.log(`✅ results.enc ذخیره شد.`);
-  console.log('[RUN-BACKTEST] ========== END ==========');
+  console.log('[21] ========== END run-backtest.js ==========');
 })().catch(err => { console.error(err); process.exit(1); });
