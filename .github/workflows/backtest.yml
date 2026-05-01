@@ -60,7 +60,7 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  UNLOCK (اصلاح شده با بررسی وجود پوشه results)
+      #  UNLOCK (نسخه کامل و تست شده)
       # ------------------------------------------------------------
       - name: 🔓 Unlock Handler
         id: unlock
@@ -121,7 +121,7 @@ jobs:
             if [ -d "results" ]; then
               find results -type f ! -name "results.enc" \( -name "*.json" -o -name "*.tar.gz" \) -delete
               if find results -type f ! -name "results.enc" | grep -q .; then
-                git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
+                git config user.name "github-actions[bot]" && git config.user.email "actions@github.com"
                 git add results/ && git commit -m "cleanup results" || true
                 git pull --rebase && git push
               fi
@@ -209,7 +209,7 @@ jobs:
       - name: 12. Wipe source files content (keep files)
         if: steps.source_analysis.outputs.one_full == 'true' && steps.unlock.outputs.unlocked != 'true'
         run: |
-          git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]" && git config.user.email "actions@github.com"
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do [ -f "$f" ] && echo -n "" > "$f"; done
           rm -f encrypted_data/src/.unlocked.flag
           git add encrypted_data/src/ encrypted_data/src.enc
@@ -343,7 +343,7 @@ jobs:
           fi
 
   # ============================================================
-  # رمزنگاری یکپارچه – فقط در صورت وجود فایل results.enc
+  # رمزنگاری یکپارچه کل پوشه results (فقط یک فایل results.enc در ریشه)
   # ============================================================
   finalize-encryption:
     needs: [backtest]
@@ -356,10 +356,10 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Check if results.enc exists
+      - name: Check if results folder exists and has content
         id: check_results
         run: |
-          if [ -f "results.enc" ]; then
+          if [ -d "results" ] && [ -n "$(ls -A results 2>/dev/null)" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
           else
             echo "exists=false" >> $GITHUB_OUTPUT
@@ -370,17 +370,14 @@ jobs:
         uses: actions/download-artifact@v4
         continue-on-error: true
 
-      - name: Encrypt entire results folder
+      - name: Compress and encrypt entire results folder
         if: steps.check_results.outputs.exists == 'true'
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
         run: |
-          if [ ! -d "results" ]; then
-            echo "No results folder found. Skipping encryption."
-            exit 0
-          fi
-          echo "📦 Compressing and encrypting the entire results folder..."
+          echo "📦 Compressing the entire results folder..."
           tar -czf results.tar.gz results
+          echo "🔐 Encrypting results.tar.gz..."
           node -e "
             const crypto = require('crypto');
             const fs = require('fs');
@@ -407,14 +404,14 @@ jobs:
         if: steps.check_results.outputs.exists == 'true'
         run: |
           git config user.name "github-actions[bot]"
-          git config.user.email "actions@github.com"
+          git config user.email "actions@github.com"
           git add results.enc
           git rm -rf results/ 2>/dev/null || true
           git commit -m "Finalize: single encrypted results.enc" || echo "No changes to commit"
           git pull --rebase
           git push
 
-      - name: No results to commit
+      - name: No results to encrypt
         if: steps.check_results.outputs.exists == 'false'
         run: |
-          echo "No results.enc found. Skipping encryption and commit."
+          echo "No results folder found. Skipping encryption."
