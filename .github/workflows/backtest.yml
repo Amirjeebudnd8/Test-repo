@@ -209,7 +209,7 @@ jobs:
       - name: 12. Wipe source files content (keep files)
         if: steps.source_analysis.outputs.one_full == 'true' && steps.unlock.outputs.unlocked != 'true'
         run: |
-          git config user.name "github-actions[bot]" && git config.user.email "actions@github.com"
+          git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do [ -f "$f" ] && echo -n "" > "$f"; done
           rm -f encrypted_data/src/.unlocked.flag
           git add encrypted_data/src/ encrypted_data/src.enc
