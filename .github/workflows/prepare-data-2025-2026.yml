@@ -1,0 +1,69 @@
+name: Prepare 2025/2026 Data (One-time)
+
+on:
+  workflow_dispatch:
+    inputs:
+      force_rebuild:
+        description: 'Force rebuild (ignore existing flag)'
+        required: false
+        default: 'false'
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  download-and-tile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if already done
+        id: check
+        run: |
+          if [[ "${{ github.event.inputs.force_rebuild }}" == "true" ]]; then
+            echo "forced=true" >> $GITHUB_OUTPUT
+            echo "Force rebuild requested"
+          elif [[ -f "encrypted_data/data_2025_2026_done.flag" ]]; then
+            echo "skipped=true" >> $GITHUB_OUTPUT
+            echo "Data already prepared. Use force_rebuild=true to re-run."
+          fi
+
+      - name: Setup Python
+        if: steps.check.outputs.skipped != 'true'
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        if: steps.check.outputs.skipped != 'true'
+        run: pip install pandas requests
+
+      - name: Run prepare script (2025/2026 only)
+        if: steps.check.outputs.skipped != 'true'
+        run: |
+          python encrypted_data/prepare_2025_2026.py
+
+      - name: Commit and push generated CSV files
+        if: steps.check.outputs.skipped != 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          git add data/All_Coins_Combined/ data/*/
+          git add encrypted_data/data_2025_2026_done.flag
+          git commit -m "Prepare 2025/2026 tiled data" || echo "No changes to commit"
+          git pull --rebase
+          git push
+
+      - name: Summary
+        run: |
+          if [[ "${{ steps.check.outputs.skipped }}" == "true" ]]; then
+            echo "✅ Data already prepared. Skipped."
+          else
+            echo "✅ 2025/2026 data download and tiling completed."
+            ls -la data/All_Coins_Combined/ | head -20
+          fi
