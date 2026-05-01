@@ -1,6 +1,5 @@
 name: Complete 24/7 Pipeline
 
-
 permissions:
   contents: write
 
@@ -61,7 +60,7 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  UNLOCK (بدون heredoc)
+      #  UNLOCK
       # ------------------------------------------------------------
       - name: 🔓 Unlock Handler
         id: unlock
@@ -73,6 +72,7 @@ jobs:
           UNLOCK_FILE="encrypted_data/src/unlock.txt"
           FLAG_FILE="encrypted_data/src/.unlocked.flag"
 
+          # [۳] unlock = 3
           if [ -f "$UNLOCK_FILE" ] && grep -q "^3$" "$UNLOCK_FILE"; then
             echo "📊 unlock=3"
             find results -name "results.enc" -type f | while read ENC; do
@@ -81,13 +81,16 @@ jobs:
               tar -xzf "$DIR/results.tar.gz" -C "$DIR" && rm -f "$DIR/results.tar.gz"
             done
             git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
-            git add results/ && git commit -m "extract results (unlock 3)" || true
+            git add results/
+            git commit -m "extract results (unlock 3)" || true
             git pull --rebase && git push
             rm -f "$UNLOCK_FILE" "$FLAG_FILE"
 
+          # [۱] unlock = 1
           elif [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
             echo "🔓 unlock=1"
             echo "unlocked=true" >> $GITHUB_OUTPUT
+
             if [ -f encrypted_data/src.enc ]; then
               mkdir -p temp_src_restore
               node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src.tar.gz',dec);"
@@ -95,13 +98,18 @@ jobs:
               mkdir -p encrypted_data/src
               cp -r temp_src_restore/* encrypted_data/src/ && rm -rf temp_src_restore src.tar.gz
               echo "✅ سورس استخراج شد."
-              touch encrypted_data/src/.unlocked.flag && echo "🏁 پرچم ساخته شد."
+              touch encrypted_data/src/.unlocked.flag
+              echo "🏁 پرچم ساخته شد."
             fi
+
             git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
+            git stash --include-untracked 2>/dev/null || true
             git add encrypted_data/src/*.js encrypted_data/src/.unlocked.flag 2>/dev/null || true
             rm -f "$UNLOCK_FILE"
             git commit -m "unlock source files" || true
-            git pull --rebase && git push
+            git pull --rebase
+            git stash pop 2>/dev/null || true
+            git push
 
           else
             echo "🧹 پاکسازی JSONهای نتایج"
