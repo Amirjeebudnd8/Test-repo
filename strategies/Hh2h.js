@@ -1,17 +1,27 @@
-/**
- * استراتژی فقط واگرایی (بدون روند شارپ، بدون خطوط روند، بدون ایچیموکو)
- * 
- * شرط: اگر در 500 کندل گذشته حداقل یک سیگنال واگرایی صعودی (BUY) وجود داشته باشد
- *       در کندل فعلی (هر کندل) → سیگنال BUX بده.
- * 
- * پارامترهای واگرایی (ارسال به run-backtest.js):
- * - RSI دوره: 14
- * - MACD: سریع=12, کند=26, سیگنال=9
- * - استفاده از هیستوگرام MACD: true
- */
+// پرچم سراسری برای لاگ یک بار
+
+if (typeof customStrategy._divergenceLogged === 'undefined') {
+    customStrategy._divergenceLogged = false;
+}
 
 function customStrategy(data, index, breakPointsParam) {
-    // حداقل کندل مورد نیاز برای محاسبات
+    // لاگ یک بار در اولین فراخوانی (index کوچک)
+    if (!customStrategy._divergenceLogged && index < 100) {
+        customStrategy._divergenceLogged = true;
+        if (breakPointsParam && breakPointsParam.divergenceSignals) {
+            const count = breakPointsParam.divergenceSignals.length;
+            console.log(`[DIVERGENCE CHECK] divergenceSignals found, count = ${count}`);
+            if (count > 0) {
+                console.log(`[DIVERGENCE CHECK] Sample:`, breakPointsParam.divergenceSignals[0]);
+            } else {
+                console.log(`[DIVERGENCE CHECK] divergenceSignals array is EMPTY.`);
+            }
+        } else {
+            console.log(`[DIVERGENCE CHECK] breakPointsParam.divergenceSignals is MISSING or undefined.`);
+        }
+    }
+
+    // ادامه منطق قبلی (بررسی واگرایی در ۵۰۰ کندل گذشته)
     if (index < 50) return null;
 
     const LOOKBACK = 500;
@@ -20,7 +30,6 @@ function customStrategy(data, index, breakPointsParam) {
     let hasBullishDivergence = false;
     let bestDivergence = null;
 
-    // بررسی واگرایی از breakPointsParam
     if (breakPointsParam && breakPointsParam.divergenceSignals) {
         for (const sig of breakPointsParam.divergenceSignals) {
             if (sig.startIndex >= startIdx && sig.startIndex <= index && sig.signal === 'BUY') {
@@ -32,12 +41,9 @@ function customStrategy(data, index, breakPointsParam) {
         }
     }
 
-    // اگر واگرایی صعودی یافت شد → سیگنال BUY
     if (hasBullishDivergence) {
         const price = data[index].close;
-        // لاگ ساده (در خروجی workflow دیده می‌شود)
         console.log(`✅ واگرایی صعودی در کندل ${index} | قیمت ${price.toFixed(4)} | نوع: ${bestDivergence.type} | اندیکاتور: ${bestDivergence.indicatorType}`);
-        
         return {
             signal: 'BUY',
             price: price,
@@ -45,8 +51,6 @@ function customStrategy(data, index, breakPointsParam) {
             takeProfit: price * 1.04,
             trailingStop: false,
             useFibonacci: false,
-            
-            // پارامترهای اجباری که run-backtest.js انتظار دارد
             ichimoku: {
                 tenkanPeriod: 9, kijunPeriod: 26, senkouBPeriod: 52,
                 useCloudFilter: true, useTKCross: true, useChikou: true
