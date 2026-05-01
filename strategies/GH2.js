@@ -1,14 +1,9 @@
 /**
- * استراتژی تست کامل - شرط AND بین همه پنج مؤلفه در 500 کندل گذشته
+ * استراتژی تست کامل - بازه ۲۵۰۰ کندل گذشته + گزارش دیباگ
  * 
- * شرایط صعودی (BUY) - همه باید در 500 کندل قبل رخ داده باشند:
- * 1. شکست خط روند صعودی (از breakPoints با direction='up' یا بررسی getTrendLines)
- * 2. وجود روند شارپ صعودی (BULLISH_SHARP)
- * 3. وجود واگرایی صعودی (از breakPointsParam - می‌توان از divergenceSignals استفاده کرد)
- * 4. ایچیموکو صعودی در حداقل یک کندل (قیمت بالای ابر و تنکان بالای کیجون)
- * 5. وجود نقطه شکست (breakPoint) از خط روند (همانند شرط 1، اما می‌توان جداگانه چک کرد)
- * 
- * برای نزولی (SELL) نیز شرایط معکوس.
+ * در لاگ اجرا، تعداد دفعات وقوع هر مؤلفه (صعودی و نزولی) چاپ می‌شود.
+ * سیگنال فقط زمانی صادر می‌شود که هر پنج مؤلفه (خط روند، شارپ، واگرایی، ایچیموکو، نقطه شکست)
+ * حداقل یک بار در بازه ۲۵۰۰ کندل گذشته اتفاق افتاده باشند.
  */
 
 function customStrategy(data, index, breakPointsParam, ichimokuParam) {
@@ -17,7 +12,8 @@ function customStrategy(data, index, breakPointsParam, ichimokuParam) {
     // =====================================================
     if (index < 100) return null;
     
-    const lookback = Math.min(500, index);
+    // بازه ۲۵۰۰ کندل (یا از ابتدا اگر کمتر باشد)
+    const lookback = Math.min(2500, index);
     const startIdx = index - lookback;
     
     // =====================================================
@@ -27,20 +23,18 @@ function customStrategy(data, index, breakPointsParam, ichimokuParam) {
     const sharpTrends = getSharpTrends();      // روندهای شارپ
     
     // =====================================================
-    // 3. پرچم‌های صعودی (همه باید true شوند)
+    // 3. آمارگیری (برای دیباگ)
     // =====================================================
-    let hasBullishTrendlineBreak = false;   // شکست خط روند صعودی
-    let hasBullishSharpTrend = false;       // روند شارپ صعودی
-    let hasBullishDivergence = false;       // واگرایی صعودی
-    let hasBullishIchimoku = false;         // ایچیموکو صعودی
-    let hasBullishBreakPoint = false;       // نقطه شکست (می‌تواند همان شرط اول باشد، ولی جدا می‌کنیم)
-    
-    // پرچم‌های نزولی
-    let hasBearishTrendlineBreak = false;
-    let hasBearishSharpTrend = false;
-    let hasBearishDivergence = false;
-    let hasBearishIchimoku = false;
-    let hasBearishBreakPoint = false;
+    let bullishTrendlineCount = 0;
+    let bearishTrendlineCount = 0;
+    let bullishSharpCount = 0;
+    let bearishSharpCount = 0;
+    let bullishDivergenceCount = 0;
+    let bearishDivergenceCount = 0;
+    let bullishIchimokuCount = 0;
+    let bearishIchimokuCount = 0;
+    let bullishBreakPointCount = 0;
+    let bearishBreakPointCount = 0;
     
     // =====================================================
     // 3.1 بررسی نقاط شکست (breakPointsParam) و واگرایی‌ها
@@ -50,27 +44,26 @@ function customStrategy(data, index, breakPointsParam, ichimokuParam) {
             const points = breakPointsParam[i];
             if (points && points.length > 0) {
                 for (const p of points) {
-                    // جهت شکست خط
-                    if (p.direction === 'up') hasBullishTrendlineBreak = true;
-                    if (p.direction === 'down') hasBearishTrendlineBreak = true;
-                    // هر نقطه شکست (بدون در نظر گرفتن جهت) برای شرط پنجم
-                    if (p.isBreakPoint === true) {
-                        if (p.direction === 'up') hasBullishBreakPoint = true;
-                        if (p.direction === 'down') hasBearishBreakPoint = true;
+                    if (p.direction === 'up') {
+                        bullishTrendlineCount++;
+                        bullishBreakPointCount++;
+                    }
+                    if (p.direction === 'down') {
+                        bearishTrendlineCount++;
+                        bearishBreakPointCount++;
                     }
                 }
             }
         }
     }
     
-    // همچنین می‌توان از divergenceSignals موجود در breakPointsParam استفاده کرد
-    // اگر breakPointsParam دارای فیلد divergenceSignals باشد (طبق کد قبلی run-backtest.js)
+    // واگرایی‌ها از divergenceSignals
     if (breakPointsParam && breakPointsParam.divergenceSignals) {
         const divSignals = breakPointsParam.divergenceSignals;
         for (const sig of divSignals) {
             if (sig.index >= startIdx && sig.index <= index) {
-                if (sig.signal === 'BUY') hasBullishDivergence = true;
-                if (sig.signal === 'SELL') hasBearishDivergence = true;
+                if (sig.signal === 'BUY') bullishDivergenceCount++;
+                if (sig.signal === 'SELL') bearishDivergenceCount++;
             }
         }
     }
@@ -81,32 +74,30 @@ function customStrategy(data, index, breakPointsParam, ichimokuParam) {
     if (sharpTrends && sharpTrends.length > 0) {
         for (const trend of sharpTrends) {
             if (trend.startIndex >= startIdx && trend.startIndex <= index) {
-                if (trend.trendType === 'BULLISH_SHARP') hasBullishSharpTrend = true;
-                if (trend.trendType === 'BEARISH_SHARP') hasBearishSharpTrend = true;
+                if (trend.trendType === 'BULLISH_SHARP') bullishSharpCount++;
+                if (trend.trendType === 'BEARISH_SHARP') bearishSharpCount++;
             }
         }
     }
     
     // =====================================================
-    // 3.3 بررسی خطوط روند اصلی (جهت شکست از طریق getTrendLines)
-    // به جای breakPoints، می‌توان از خود trendLines استفاده کرد
-    // ولی برای شکست نیاز به محاسبه داریم، به صورت ساده وجود خط صعودی در بازه را نشانه می‌گیریم
+    // 3.3 بررسی خطوط روند اصلی (از getTrendLines)
+    // وجود خط صعودی/نزولی در بازه را به عنوان یک رویداد محاسبه می‌کنیم
+    // =====================================================
     if (trendLines) {
         if (trendLines.primaryUp && trendLines.primaryUp.length > 0) {
             for (const line of trendLines.primaryUp) {
                 if (line.startIndex >= startIdx || line.endIndex >= startIdx) {
-                    // وجود خط صعودی می‌تواند یک شرط باشد، اما برای شکست دقیق‌تر باید points را بررسی کرد
-                    // فعلاً برای سادگی، اگر خط صعودی در بازه هست، شرط شکست را true می‌کنیم
-                    hasBullishTrendlineBreak = true;
-                    hasBullishBreakPoint = true;
+                    bullishTrendlineCount++;
+                    bullishBreakPointCount++;
                 }
             }
         }
         if (trendLines.primaryDown && trendLines.primaryDown.length > 0) {
             for (const line of trendLines.primaryDown) {
                 if (line.startIndex >= startIdx || line.endIndex >= startIdx) {
-                    hasBearishTrendlineBreak = true;
-                    hasBearishBreakPoint = true;
+                    bearishTrendlineCount++;
+                    bearishBreakPointCount++;
                 }
             }
         }
@@ -114,33 +105,57 @@ function customStrategy(data, index, breakPointsParam, ichimokuParam) {
     
     // =====================================================
     // 3.4 بررسی ایچیموکو در بازه
+    // چون ایچیموکو فقط برای کندل فعلی در دسترس است،
+    // برای سادگی وضعیت فعلی را به عنوان نماینده می‌گیریم
     // =====================================================
     if (ichimokuParam) {
-        // برای ساده‌سازی، فرض می‌کنیم ایچیموکوی فعلی نماینده کل بازه است
-        // اما در واقع باید در حلقه مقدار ایچیموکو را برای هر کندل داشت. از آنجایی که پارامتر ichimokuParam
-        // فقط برای کندل فعلی داده می‌شود، برای دقت بیشتر باید در استراتژی قبلاً ذخیره می‌شد.
-        // در اینجا برای تست، از همان مقدار فعلی استفاده می‌کنیم.
         if (ichimokuParam.isPriceAboveCloud && ichimokuParam.isTenkanAboveKijun) {
-            hasBullishIchimoku = true;
+            bullishIchimokuCount = 1;   // حداقل یک بار
         }
         if (ichimokuParam.isPriceBelowCloud && !ichimokuParam.isTenkanAboveKijun) {
-            hasBearishIchimoku = true;
+            bearishIchimokuCount = 1;
         }
     }
     
     // =====================================================
-    // 4. تصمیم‌گیری: اگر همه پنج شرط صعودی برقرار بود → BUY
+    // 4. گزارش دیباگ (در لاگ اجرا دیده می‌شود)
     // =====================================================
-    const allBullish = hasBullishTrendlineBreak && hasBullishSharpTrend && 
-                        hasBullishDivergence && hasBullishIchimoku && hasBullishBreakPoint;
+    if (index % 100 === 0 || index === data.length - 1) {
+        console.log(`\n========== دیباگ استراتژی در کندل ${index} ==========`);
+        console.log(`بازه بررسی: از کندل ${startIdx} تا ${index} (${lookback} کندل)`);
+        console.log(`--- رویدادهای صعودی (BUY) ---`);
+        console.log(`شکست/خط روند صعودی: ${bullishTrendlineCount}`);
+        console.log(`روند شارپ صعودی: ${bullishSharpCount}`);
+        console.log(`واگرایی صعودی: ${bullishDivergenceCount}`);
+        console.log(`ایچیموکو صعودی (فعلی): ${bullishIchimokuCount}`);
+        console.log(`نقطه شکست صعودی: ${bullishBreakPointCount}`);
+        console.log(`--- رویدادهای نزولی (SELL) ---`);
+        console.log(`شکست/خط روند نزولی: ${bearishTrendlineCount}`);
+        console.log(`روند شارپ نزولی: ${bearishSharpCount}`);
+        console.log(`واگرایی نزولی: ${bearishDivergenceCount}`);
+        console.log(`ایچیموکو نزولی (فعلی): ${bearishIchimokuCount}`);
+        console.log(`نقطه شکست نزولی: ${bearishBreakPointCount}`);
+    }
     
-    const allBearish = hasBearishTrendlineBreak && hasBearishSharpTrend && 
-                        hasBearishDivergence && hasBearishIchimoku && hasBearishBreakPoint;
+    // =====================================================
+    // 5. شرط AND - همه پنج مؤلفه باید حداقل ۱ باشند
+    // =====================================================
+    const allBullish = (bullishTrendlineCount > 0) && (bullishSharpCount > 0) && 
+                       (bullishDivergenceCount > 0) && (bullishIchimokuCount > 0) && 
+                       (bullishBreakPointCount > 0);
+    
+    const allBearish = (bearishTrendlineCount > 0) && (bearishSharpCount > 0) && 
+                       (bearishDivergenceCount > 0) && (bearishIchimokuCount > 0) && 
+                       (bearishBreakPointCount > 0);
     
     const currentCandle = data[index];
     const price = currentCandle.close;
     
+    // =====================================================
+    // 6. خروجی
+    // =====================================================
     if (allBullish) {
+        console.log(`✅ سیگنال BUY در کندل ${index} - همه پنج شرط صعودی برقرار است.`);
         return {
             signal: 'BUY',
             price: price,
@@ -179,6 +194,7 @@ function customStrategy(data, index, breakPointsParam, ichimokuParam) {
     }
     
     if (allBearish) {
+        console.log(`✅ سیگنال SELL در کندل ${index} - همه پنج شرط نزولی برقرار است.`);
         return {
             signal: 'SELL',
             price: price,
@@ -216,11 +232,10 @@ function customStrategy(data, index, breakPointsParam, ichimokuParam) {
         };
     }
     
-    // اگر هیچکدام از شرایط AND برقرار نشد، null برگردان (بدون سیگنال)
+    // اگر هیچکدام از شرایط AND برقرار نبود، null برگردان
     return null;
 }
 
-// تابع کمکی
 function calculateTrendLineValue(line, index) {
     if (!line) return null;
     const slope = (line.endPrice - line.startPrice) / (line.endIndex - line.startIndex);
