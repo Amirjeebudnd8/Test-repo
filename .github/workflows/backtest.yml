@@ -127,7 +127,7 @@ jobs:
             if [ -d "results" ]; then
               find results -type f ! -name "results.enc" \( -name "*.json" -o -name "*.tar.gz" \) -delete
               if find results -type f ! -name "results.enc" | grep -q .; then
-                git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
+                git config user.name "github-actions[bot]" && git config.user.email "actions@github.com"
                 git add results/ && git commit -m "cleanup results" || true
                 git pull --rebase && git push
               fi
@@ -216,7 +216,7 @@ jobs:
       - name: 12. پاک کردن محتوای فایل‌های سورس (نگه داشتن فایل‌ها)
         if: steps.source_analysis.outputs.one_full == 'true' && steps.unlock.outputs.unlocked != 'true'
         run: |
-          git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
+          git config user.name "github-actions[bot]" && git config.user.email "actions@github.com"
           for f in encrypted_data/src/*.js encrypted_data/src/*.py; do [ -f "$f" ] && echo -n "" > "$f"; done
           rm -f encrypted_data/src/.unlocked.flag
           git add encrypted_data/src/ encrypted_data/src.enc
@@ -245,13 +245,13 @@ jobs:
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: 17. ساختن چانک‌های پویا (برای تست فقط ۲ چانک)
+      - name: 17. ساختن چانک‌های پویا (هر چانک شامل ۲۵ فایل CSV)
         id: build_chunks
         run: |
-          # تعداد کل فایل‌های CSV (برای تست فقط ۲ فایل در نظر گرفته می‌شود)
+          # تعداد کل فایل‌های CSV موجود در پوشه داده
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-          cnt=2
-          size=1
+          # هر چانک شامل ۲۵ فایل باشد
+          size=25
           n=$(( (cnt + size - 1) / size ))
           chunks="["
           for ((i=0; i<n; i++)); do
@@ -279,10 +279,10 @@ jobs:
     needs: [check-completion, prepare]
     if: needs.prepare.outputs.strategies != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 330
     strategy:
       fail-fast: false
-      max-parallel: 2
+      max-parallel: 20
       matrix:
         strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
         chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
