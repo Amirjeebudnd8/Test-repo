@@ -1,4 +1,4 @@
-### VERSION: FINAL (5 parallel groups, full logging, no compression) ###
+### VERSION: FINAL (5 parallel groups, full logging, syntax fixed) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -273,6 +273,8 @@ jobs:
         with: { node-version: '18' }
       - run: mkdir -p results logs
       - name: اجرای بک‌تست (ایندکس 0-249)
+        env:
+          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
         run: |
           set -x
           for index in $(seq 0 249); do
@@ -290,8 +292,6 @@ jobs:
               echo "✅ بکتست فایل $index با موفقیت پایان یافت."
             fi
           done
-        env:
-          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
       - name: نمایش لاگ‌ها
         if: always()
         run: |
@@ -333,6 +333,8 @@ jobs:
         with: { node-version: '18' }
       - run: mkdir -p results logs
       - name: اجرای بک‌تست (ایندکس 250-499)
+        env:
+          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
         run: |
           set -x
           for index in $(seq 250 499); do
@@ -350,8 +352,6 @@ jobs:
               echo "✅ بکتست فایل $index با موفقیت پایان یافت."
             fi
           done
-        env:
-          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
       - name: نمایش لاگ‌ها
         if: always()
         run: |
@@ -393,6 +393,8 @@ jobs:
         with: { node-version: '18' }
       - run: mkdir -p results logs
       - name: اجرای بک‌تست (ایندکس 500-749)
+        env:
+          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
         run: |
           set -x
           for index in $(seq 500 749); do
@@ -410,8 +412,6 @@ jobs:
               echo "✅ بکتست فایل $index با موفقیت پایان یافت."
             fi
           done
-        env:
-          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
       - name: نمایش لاگ‌ها
         if: always()
         run: |
@@ -453,6 +453,8 @@ jobs:
         with: { node-version: '18' }
       - run: mkdir -p results logs
       - name: اجرای بک‌تست (ایندکس 750-999)
+        env:
+          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
         run: |
           set -x
           for index in $(seq 750 999); do
@@ -470,8 +472,6 @@ jobs:
               echo "✅ بکتست فایل $index با موفقیت پایان یافت."
             fi
           done
-        env:
-          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
       - name: نمایش لاگ‌ها
         if: always()
         run: |
@@ -513,6 +513,8 @@ jobs:
         with: { node-version: '18' }
       - run: mkdir -p results logs
       - name: اجرای بک‌تست (ایندکس 1000-1099)
+        env:
+          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
         run: |
           set -x
           for index in $(seq 1000 1099); do
@@ -530,8 +532,6 @@ jobs:
               echo "✅ بکتست فایل $index با موفقیت پایان یافت."
             fi
           done
-        env:
-          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
       - name: نمایش لاگ‌ها
         if: always()
         run: |
