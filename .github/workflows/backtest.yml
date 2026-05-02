@@ -1,4 +1,4 @@
-### VERSION: FINAL (strategy path fixed, no heredocs) ###
+### VERSION: FINAL (ALL node -e use single quotes, YAML safe) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -81,7 +81,7 @@ jobs:
             if [ -d results ]; then
               find results -name "results.enc" -type f | while read ENC; do
                 DIR=$(dirname "$ENC")
-                node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.RESULTS_PASSWORD;const data=fs.readFileSync('$ENC');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('$DIR/results.tar.gz',dec);"
+                node -e 'const crypto=require("crypto"),fs=require("fs");const pass=process.env.RESULTS_PASSWORD;const data=fs.readFileSync("'"$ENC"'");const key=crypto.scryptSync(pass,"salt",32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv("aes-256-cbc",key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync("'"$DIR"'/results.tar.gz",dec);'
                 tar -xzf "$DIR/results.tar.gz" -C "$DIR" && rm -f "$DIR/results.tar.gz"
               done
               git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
@@ -97,7 +97,7 @@ jobs:
 
             if [ -f encrypted_data/src.enc ]; then
               mkdir -p temp_src_restore
-              node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src.tar.gz',dec);"
+              node -e 'const crypto=require("crypto"),fs=require("fs");const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync("encrypted_data/src.enc");const key=crypto.scryptSync(pass,"salt",32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv("aes-256-cbc",key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync("src.tar.gz",dec);'
               tar -xzf src.tar.gz -C temp_src_restore
               mkdir -p encrypted_data/src
               cp -r temp_src_restore/* encrypted_data/src/ && rm -rf temp_src_restore src.tar.gz
@@ -167,7 +167,7 @@ jobs:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
           if [ -f encrypted_data/data.enc ]; then
-            node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.DATA_PASSWORD;const data=fs.readFileSync('encrypted_data/data.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('data.tar.gz',dec);"
+            node -e 'const crypto=require("crypto"),fs=require("fs");const pass=process.env.DATA_PASSWORD;const data=fs.readFileSync("encrypted_data/data.enc");const key=crypto.scryptSync(pass,"salt",32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv("aes-256-cbc",key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync("data.tar.gz",dec);'
             mkdir -p data && tar -xzf data.tar.gz -C data && rm data.tar.gz
           fi
 
@@ -176,7 +176,7 @@ jobs:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
           cd data && tar -czf ../data.tar.gz All_Coins_Combined && cd ..
-          node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.DATA_PASSWORD;const key=crypto.scryptSync(pass,'salt',32);const iv=crypto.randomBytes(16);const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);const input=fs.readFileSync('data.tar.gz');const enc=Buffer.concat([cipher.update(input),cipher.final()]);fs.writeFileSync('encrypted_data/data.enc',Buffer.concat([iv,enc]));"
+          node -e 'const crypto=require("crypto"),fs=require("fs");const pass=process.env.DATA_PASSWORD;const key=crypto.scryptSync(pass,"salt",32);const iv=crypto.randomBytes(16);const cipher=crypto.createCipheriv("aes-256-cbc",key,iv);const input=fs.readFileSync("data.tar.gz");const enc=Buffer.concat([cipher.update(input),cipher.final()]);fs.writeFileSync("encrypted_data/data.enc",Buffer.concat([iv,enc]));'
           rm data.tar.gz
 
       # ---------- ۱۰-۱۲ رمزنگاری هوشمند فایل‌های سورس ----------
@@ -201,7 +201,7 @@ jobs:
           else
             mkdir -p temp_merge
             if [ -f encrypted_data/src.enc ]; then
-              node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src_old.tar.gz',dec);"
+              node -e 'const crypto=require("crypto"),fs=require("fs");const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync("encrypted_data/src.enc");const key=crypto.scryptSync(pass,"salt",32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv("aes-256-cbc",key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync("src_old.tar.gz",dec);'
               tar -xzf src_old.tar.gz -C temp_merge && rm src_old.tar.gz
             fi
             for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
@@ -210,7 +210,7 @@ jobs:
             tar -czf src.tar.gz -C temp_merge .
             rm -rf temp_merge
           fi
-          node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const key=crypto.scryptSync(pass,'salt',32);const iv=crypto.randomBytes(16);const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);const input=fs.readFileSync('src.tar.gz');const enc=Buffer.concat([cipher.update(input),cipher.final()]);fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));"
+          node -e 'const crypto=require("crypto"),fs=require("fs");const pass=process.env.CODE_PASSWORD;const key=crypto.scryptSync(pass,"salt",32);const iv=crypto.randomBytes(16);const cipher=crypto.createCipheriv("aes-256-cbc",key,iv);const input=fs.readFileSync("src.tar.gz");const enc=Buffer.concat([cipher.update(input),cipher.final()]);fs.writeFileSync("encrypted_data/src.enc",Buffer.concat([iv,enc]));'
           rm src.tar.gz
 
       - name: 12. پاک کردن محتوای فایل‌های سورس (نگه داشتن فایل‌ها)
@@ -231,7 +231,7 @@ jobs:
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
-          node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src.tar.gz',dec);"
+          node -e 'const crypto=require("crypto"),fs=require("fs");const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync("encrypted_data/src.enc");const key=crypto.scryptSync(pass,"salt",32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv("aes-256-cbc",key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync("src.tar.gz",dec);'
           tar -xzf src.tar.gz && rm src.tar.gz
 
       - name: 14. راه‌اندازی Node.js
@@ -581,17 +581,17 @@ jobs:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
         run: |
           tar -czf results.tar.gz results
-          node -e "
-            const crypto = require('crypto');
-            const fs = require('fs');
+          node -e '
+            const crypto = require("crypto");
+            const fs = require("fs");
             const pass = process.env.RESULTS_PASSWORD;
-            const key = crypto.scryptSync(pass, 'salt', 32);
+            const key = crypto.scryptSync(pass, "salt", 32);
             const iv = crypto.randomBytes(16);
-            const cipher = crypto.createCipheriv('aes-256-cbc', key, iv);
-            const input = fs.readFileSync('results.tar.gz');
+            const cipher = crypto.createCipheriv("aes-256-cbc", key, iv);
+            const input = fs.readFileSync("results.tar.gz");
             const encrypted = Buffer.concat([cipher.update(input), cipher.final()]);
-            fs.writeFileSync('results.enc', Buffer.concat([iv, encrypted]));
-          "
+            fs.writeFileSync("results.enc", Buffer.concat([iv, encrypted]));
+          '
           rm -f results.tar.gz && rm -rf results
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
