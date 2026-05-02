@@ -1,3 +1,21 @@
+const ANALYSIS_CONFIG = {
+    trendLines: {
+        pivotPeriod: 3,
+        minTouchPoints: 3,
+        minCandleDistance: 3,
+        maxDeviation: 0.001
+    },
+    ichimoku: {
+        enabled: true,
+        useCloudFilter: true,
+        useTKCross: true,
+        useChikou: true,
+        tenkanPeriod: 14,
+        kijunPeriod: 30,
+        senkouBPeriod: 57
+    }
+};
+
 function customStrategy(data, index, breakPointsParam, ichimokuParam) {
     const trendLines = getTrendLines();
     const downTrendLines = trendLines.primaryDown || [];
