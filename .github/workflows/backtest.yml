@@ -1,3 +1,4 @@
+### VERSION: 9 ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -245,13 +246,11 @@ jobs:
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: 17. ساختن چانک‌های پویا (هر چانک شامل ۲۵ فایل CSV)
+      - name: 17. ساختن چانک‌های پویا (هر چانک شامل ۱۰ فایل CSV)
         id: build_chunks
         run: |
-          # تعداد کل فایل‌های CSV موجود در پوشه داده
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
-          # هر چانک شامل ۲۵ فایل باشد
-          size=25
+          size=10
           n=$(( (cnt + size - 1) / size ))
           chunks="["
           for ((i=0; i<n; i++)); do
@@ -268,9 +267,7 @@ jobs:
           name: prep
           path: |
             data/
-            backtest-core.js
-            divergence-detector.js
-            run-backtest.js
+            encrypted_data/src/
             strategies/
             node_modules/
             package.json
@@ -313,7 +310,7 @@ jobs:
           mapfile -t CSV_FILES < <(find "$DATA_DIR" -maxdepth 1 -name "*.csv" -print0 | xargs -0 ls -1 2>/dev/null)
           echo "✅ تعداد کل فایل‌های CSV: ${#CSV_FILES[@]}"
           [ ${#CSV_FILES[@]} -gt 0 ] && echo "   اولین: $(basename "${CSV_FILES[0]}")   آخرین: $(basename "${CSV_FILES[-1]}")"
-          for cf in backtest-core.js divergence-detector.js run-backtest.js; do
+          for cf in encrypted_data/src/backtest-core.js encrypted_data/src/divergence-detector.js encrypted_data/src/run-backtest.js encrypted_data/src/trendline-detector.js encrypted_data/src/ichimoku-calculator.js encrypted_data/src/breakpoint-generator.js; do
             [ -f "$cf" ] || { echo "❌ $cf پیدا نشد"; exit 1; }
           done
           echo "✅ همه بررسی‌های سلامت با موفقیت گذشت."
@@ -321,7 +318,7 @@ jobs:
       - name: 5. اجرای بکتست برای یک فایل (یک چانک)
         continue-on-error: true
         run: |
-          node run-backtest.js \
+          node encrypted_data/src/run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
             --end-index ${{ matrix.chunk }} \
