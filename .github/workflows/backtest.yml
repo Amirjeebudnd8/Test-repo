@@ -1,4 +1,4 @@
-### VERSION: FINAL (5 parallel groups, full logging, syntax fixed) ###
+### VERSION: FINAL (strategy path fixed, no heredocs) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -280,7 +280,7 @@ jobs:
           for index in $(seq 0 249); do
             echo "===== شروع بکتست برای ایندکس $index ====="
             node encrypted_data/src/run-backtest.js \
-              --strategy-file "strategies/${{ matrix.strategy_file }}" \
+              --strategy-file "strategies/${{ fromJson(needs.prepare.outputs.strategies)[0] }}" \
               --start-index $index \
               --data-dir data/All_Coins_Combined \
               2>&1 | tee logs/backtest-$index.log
@@ -340,7 +340,7 @@ jobs:
           for index in $(seq 250 499); do
             echo "===== شروع بکتست برای ایندکس $index ====="
             node encrypted_data/src/run-backtest.js \
-              --strategy-file "strategies/${{ matrix.strategy_file }}" \
+              --strategy-file "strategies/${{ fromJson(needs.prepare.outputs.strategies)[0] }}" \
               --start-index $index \
               --data-dir data/All_Coins_Combined \
               2>&1 | tee logs/backtest-$index.log
@@ -400,7 +400,7 @@ jobs:
           for index in $(seq 500 749); do
             echo "===== شروع بکتست برای ایندکس $index ====="
             node encrypted_data/src/run-backtest.js \
-              --strategy-file "strategies/${{ matrix.strategy_file }}" \
+              --strategy-file "strategies/${{ fromJson(needs.prepare.outputs.strategies)[0] }}" \
               --start-index $index \
               --data-dir data/All_Coins_Combined \
               2>&1 | tee logs/backtest-$index.log
@@ -460,7 +460,7 @@ jobs:
           for index in $(seq 750 999); do
             echo "===== شروع بکتست برای ایندکس $index ====="
             node encrypted_data/src/run-backtest.js \
-              --strategy-file "strategies/${{ matrix.strategy_file }}" \
+              --strategy-file "strategies/${{ fromJson(needs.prepare.outputs.strategies)[0] }}" \
               --start-index $index \
               --data-dir data/All_Coins_Combined \
               2>&1 | tee logs/backtest-$index.log
@@ -520,7 +520,7 @@ jobs:
           for index in $(seq 1000 1099); do
             echo "===== شروع بکتست برای ایندکس $index ====="
             node encrypted_data/src/run-backtest.js \
-              --strategy-file "strategies/${{ matrix.strategy_file }}" \
+              --strategy-file "strategies/${{ fromJson(needs.prepare.outputs.strategies)[0] }}" \
               --start-index $index \
               --data-dir data/All_Coins_Combined \
               2>&1 | tee logs/backtest-$index.log
