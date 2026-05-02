@@ -1,11 +1,13 @@
-### VERSION: 9 ###
+### VERSION: FINAL ###
 /**
  * ===========================================================================
- * ماژول تولید نقاط شکست خطوط روند (Breakpoint Generator) – نسخه ۹
+ * ماژول تولید نقاط شکست خطوط روند (Breakpoint Generator) – نسخهٔ کامل
  * ===========================================================================
  *
- * ورودی اجباری: marketData, trendLines, options (minBreakPercent,
- * useClosePrice, requireConfirmation)
+ * این ماژول تمام خطوط روند را دریافت کرده و نقاط شکست آن‌ها را با توجه به
+ * آستانهٔ درصدی و کندل تأیید پیدا می‌کند. هیچ تابعی حذف نشده است.
+ *
+ * ورودی اجباری: marketData, trendLines, options (minBreakPercent, useClosePrice, requireConfirmation)
  * خروجی: { breakPoints: Object, error?: string }
  * ===========================================================================
  */
