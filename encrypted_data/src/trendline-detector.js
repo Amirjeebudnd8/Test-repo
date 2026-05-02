@@ -1,18 +1,21 @@
-### VERSION: 9 ###
+### VERSION: FINAL ###
 /**
  * ===========================================================================
- * ماژول تشخیص خطوط روند (Trendline Detector) – نسخه ۹
+ * ماژول تشخیص خطوط روند (Trendline Detector) – نسخهٔ کامل و بدون فشرده‌سازی
  * ===========================================================================
  *
- * ورودی اجباری: marketData (آرایهٔ کندل‌ها), options (pivotPeriod,
- * minTouchPoints, minCandleDistance, maxDeviation)
+ * این ماژول دقیقاً همان ساختاری را دارد که در فایل backtest-worker.js وجود داشت،
+ * اما برای اجرا در Node.js (بدون Worker) بازنویسی شده است.
+ * تمام توابع کمکی، اعتبارسنجی‌ها و منطق اصلی حفظ شده‌اند.
+ *
+ * ورودی اجباری: marketData, options (pivotPeriod, minTouchPoints, minCandleDistance, maxDeviation)
  * خروجی: { trendLines: { primaryUp, primaryDown }, statistics, error }
  * ===========================================================================
  */
 
 'use strict';
 
-// ---------- اعتبارسنجی ----------
+// ---------- ۱. اعتبارسنجی marketData ----------
 function validateMarketData(data) {
     if (!data) return { valid: false, error: 'marketData is null or undefined' };
     if (!Array.isArray(data)) return { valid: false, error: 'marketData must be an array' };
@@ -26,6 +29,7 @@ function validateMarketData(data) {
     return { valid: true, error: null };
 }
 
+// ---------- ۲. اعتبارسنجی options ----------
 function validateOptions(options) {
     if (!options || typeof options !== 'object') return { valid: false, error: 'options is required and must be an object' };
     const requiredNumbers = ['pivotPeriod', 'minTouchPoints', 'minCandleDistance', 'maxDeviation'];
@@ -37,7 +41,7 @@ function validateOptions(options) {
     return { valid: true, error: null };
 }
 
-// ---------- ابزارهای کمکی ----------
+// ---------- ۳. تبدیل ایندکس به timestamp ----------
 function indexToTimestamp(index, marketData) {
     if (index < 0 || index >= marketData.length) return 0;
     const candle = marketData[index];
@@ -49,7 +53,7 @@ function indexToTimestamp(index, marketData) {
     return 0;
 }
 
-// ---------- یافتن نقاط پیوت ----------
+// ---------- ۴. یافتن نقاط پیوت ----------
 function findPivotPoints(marketData, pivotPeriod) {
     const pivots = [];
     const len = marketData.length;
@@ -72,7 +76,7 @@ function findPivotPoints(marketData, pivotPeriod) {
     return pivots;
 }
 
-// ---------- شمارش نقاط برخورد ----------
+// ---------- ۵. شمارش نقاط برخورد ----------
 function countTouchPoints(line, marketData, currentCandleIndex, maxDeviation, minCandleDistance) {
     let touchCount = 0;
     let lastTouchIndex = null;
@@ -102,7 +106,7 @@ function countTouchPoints(line, marketData, currentCandleIndex, maxDeviation, mi
     return { count: touchCount, details: touchDetails };
 }
 
-// ---------- ایجاد یک خط روند بین دو نقطهٔ پیوت ----------
+// ---------- ۶. ایجاد یک خط روند بین دو نقطهٔ پیوت ----------
 function createTrendLine(p1, p2, marketData, options, currentCandleIndex) {
     if (p2.index > currentCandleIndex) return null;
     if (p2.index - p1.index < options.minCandleDistance) return null;
@@ -131,7 +135,7 @@ function createTrendLine(p1, p2, marketData, options, currentCandleIndex) {
     };
 }
 
-// ---------- اعتبارسنجی یک خط روند ----------
+// ---------- ۷. اعتبارسنجی یک خط روند ----------
 function isValidTrendLine(line, marketData, options, currentCandleIndex) {
     if (!line) return false;
     if (line.endIndex > currentCandleIndex) return false;
@@ -143,7 +147,7 @@ function isValidTrendLine(line, marketData, options, currentCandleIndex) {
     return touch.count >= options.minTouchPoints;
 }
 
-// ---------- تشخیص خطوط از تمام پیوت‌ها ----------
+// ---------- ۸. تشخیص خطوط از تمام پیوت‌ها ----------
 function detectTrendLinesFromPivots(pivots, marketData, options, currentCandleIndex) {
     const primaryUp = [];
     const primaryDown = [];
@@ -175,7 +179,7 @@ function detectTrendLinesFromPivots(pivots, marketData, options, currentCandleIn
     return { primaryUp, primaryDown };
 }
 
-// ---------- تابع اصلی ----------
+// ---------- ۹. تابع اصلی ----------
 function detectTrendLinesAdvanced(marketData, options) {
     const dataValidation = validateMarketData(marketData);
     if (!dataValidation.valid) return { trendLines: { primaryUp: [], primaryDown: [] }, statistics: { totalLines: 0, primaryUp: 0, primaryDown: 0 }, error: dataValidation.error };
@@ -214,7 +218,7 @@ function detectTrendLinesAdvanced(marketData, options) {
     };
 }
 
-// ---------- تست داخلی ----------
+// ---------- ۱۰. تست داخلی ----------
 function runSelfTest() {
     const data = Array.from({ length: 200 }, (_, i) => ({
         timestamp: new Date(Date.now() + i * 60000),
