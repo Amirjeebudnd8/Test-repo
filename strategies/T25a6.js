@@ -1,24 +1,3 @@
-// ============================================================
-// فایل استراتژی – قابل استفاده در backtest.yml گیت‌هاب
-// ============================================================
-
-// ---------- ANALYSIS_CONFIG (اجباری) ----------
-const ANALYSIS_CONFIG = {
-    trendLines: {
-        pivotPeriod: 3,
-        minTouchPoints: 3,
-        minCandleDistance: 3,
-        maxDeviation: 0.001
-    },
-    ichimoku: {
-        tenkanPeriod: 9,
-        kijunPeriod: 26,
-        senkouBPeriod: 52,
-        chikouShift: 26
-    }
-    // اگر به breakPoints یا divergence نیاز ندارید، می‌توانید آن‌ها را حذف کنید.
-};
-
 function customStrategy(data, index, breakPointsParam, ichimokuParam) {
     const trendLines = getTrendLines();
     const downTrendLines = trendLines.primaryDown || [];
