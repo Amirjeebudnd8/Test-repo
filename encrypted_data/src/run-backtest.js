@@ -23,7 +23,7 @@ if (!strategyFile || !fs.existsSync(strategyFile)) {
 const strategyName = path.basename(strategyFile, '.js');
 const strategyCode = fs.readFileSync(strategyFile, 'utf8');
 
-// ==================== ۱. استخراج ANALYSIS_CONFIG از استراتژی ====================
+// ==================== استخراج ANALYSIS_CONFIG ====================
 function extractAnalysisConfig(code) {
     try {
         const fn = new Function(`
@@ -43,13 +43,10 @@ function extractAnalysisConfig(code) {
 const analysisConfig = extractAnalysisConfig(strategyCode);
 console.log('✅ ANALYSIS_CONFIG loaded');
 
-// ==================== ۲. تعیین تحلیل‌های مورد نیاز از روی کد استراتژی ====================
+// ==================== تشخیص نیازمندی‌ها ====================
 const needsTrendLines = /getTrendLines/.test(strategyCode);
-const needsIchimoku = /ichimokuParam/.test(strategyCode) && analysisConfig.ichimoku;
-const needsDivergence = /divergence/.test(strategyCode) && analysisConfig.divergence;
-// (می‌توان breakPoints و غیره را نیز اضافه کرد)
+const needsIchimoku = /ichimokuParam/.test(strategyCode);
 
-// اعتبارسنجی
 if (needsTrendLines && !analysisConfig.trendLines) {
     console.error('❌ استراتژی به خطوط روند نیاز دارد اما ANALYSIS_CONFIG.trendLines تنظیم نشده است.');
     process.exit(1);
@@ -214,11 +211,11 @@ const safeParse = (v, def=0) => {
   try { const n = parseFloat(v); return isNaN(n) ? def : n; } catch { return def; }
 };
 
-// ==================== اجرای تحلیل‌ها بر اساس نیاز ====================
+// ==================== اجرای اصلی ====================
 (async () => {
   const resultsPassword = process.env.RESULTS_PASSWORD || 'Amir1362Amir';
 
-  // خطوط روند
+  // ---- تشخیص خطوط روند با پارامترهای استراتژی ----
   let trendLines = { primaryUp: [], primaryDown: [] };
   if (needsTrendLines) {
       console.log('🟡 در حال تشخیص خطوط روند...');
@@ -231,41 +228,30 @@ const safeParse = (v, def=0) => {
       console.log(`✅ ${trendRes.statistics.totalLines} خط روند یافت شد`);
   }
 
-  // ایچیموکو
-  let ichimokuOptions = analysisConfig.ichimoku || null;
-  // (اگر نیاز به محاسبهٔ جداگانهٔ ایچیموکو باشد، اینجا اضافه شود؛ فعلاً از همان تنظیمات درون runBacktest استفاده می‌کنیم)
-
-  // واگرایی
+  // ---- واگرایی (بدون تغییر) ----
   let divergenceSignals = [];
-  if (needsDivergence && divergenceDetector) {
-      const divCfg = analysisConfig.divergence;
-      console.log('🟡 در حال تشخیص واگرایی...');
-      if (divCfg.type === 'RSI' || !divCfg.type) {
-          const rsi = divergenceDetector.runDivergenceDetection({ marketData, indicator: 'RSI', sendMessage: ()=>{} });
-          divergenceSignals = divergenceSignals.concat(rsi);
-      }
-      if (divCfg.type === 'MACD' || !divCfg.type) {
-          const macd = divergenceDetector.runDivergenceDetection({ marketData, indicator: 'MACD', sendMessage: ()=>{} });
-          divergenceSignals = divergenceSignals.concat(macd);
-      }
-      console.log(`✅ ${divergenceSignals.length} سیگنال واگرایی`);
+  if (divergenceDetector) {
+    const rsi = divergenceDetector.runDivergenceDetection({ marketData, indicator: 'RSI', sendMessage: ()=>{} });
+    const macd = divergenceDetector.runDivergenceDetection({ marketData, indicator: 'MACD', sendMessage: ()=>{} });
+    divergenceSignals = [...rsi, ...macd];
   }
 
-  // روندهای شارپ
   const sharpTrends = detectSharpTrends(marketData);
 
-  // اجرای بک‌تست
+  // ---- تنظیمات ایچیموکو از استراتژی ----
+  const ichimokuSettings = needsIchimoku ? analysisConfig.ichimoku : null;
+
   const result = await backtestCore.runBacktest(marketData, {
     code: strategyCode,
     initialCapital: 10000,
     riskPerTrade: 2,
     maxDailyLoss: 5,
     commission: 0.05,
-    ichimoku: ichimokuOptions,
-    trendLines: trendLines,
+    ichimoku: ichimokuSettings,
+    trendLines,
     breakPoints: {},
-    divergenceSignals: divergenceSignals,
-    sharpTrends: sharpTrends
+    divergenceSignals,
+    sharpTrends
   });
 
   fs.mkdirSync(outputDir, { recursive: true });
