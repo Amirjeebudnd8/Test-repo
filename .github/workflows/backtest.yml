@@ -1,4 +1,4 @@
-### VERSION: FINAL (Complete 24/7 Pipeline) ###
+### VERSION: FINAL (Complete 24/7 Pipeline – Fixed) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -316,13 +316,42 @@ jobs:
           echo "✅ همه بررسی‌های سلامت با موفقیت گذشت."
 
       - name: 5. اجرای بکتست برای یک فایل (یک چانک)
-        continue-on-error: true
+        # 🔥 continue-on-error برداشته شد تا خطاها پنهان نمانند
+        shell: bash
         run: |
+          set -e
+          echo "===== شروع بکتست (چانک ${{ matrix.chunk }}) ====="
+          echo "استراتژی: ${{ matrix.strategy_file }}"
+          echo "شروع ایندکس: ${{ matrix.chunk }}"
+          echo ""
+          
+          # 🔥 اجرای مستقیم - هر خروجی نمایش داده می‌شود
           node encrypted_data/src/run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
-            --end-index ${{ matrix.chunk }} \
             --data-dir data/All_Coins_Combined
+            
+          EXIT_CODE=$?
+          echo ""
+          echo "===== بکتست پایان یافت (کد خروج: $EXIT_CODE) ====="
+          
+          # 🔥 اگر results در encrypted_data/src/results ساخته شده، به ریشه کپی کن
+          if [ -d "encrypted_data/src/results" ]; then
+            echo "📁 نتایج در encrypted_data/src/results یافت شد، در حال کپی به ریشه..."
+            mkdir -p results
+            cp -r encrypted_data/src/results/* results/ 2>/dev/null || true
+            echo "✅ نتایج به results/ کپی شد"
+          fi
+          
+          # اگر results در ریشه ساخته شده (بعضی نسخه‌ها)
+          if [ -d "results" ] && [ -n "$(ls -A results 2>/dev/null)" ]; then
+            echo "✅ پوشه results در ریشه وجود دارد و خالی نیست"
+            ls -la results/
+          else
+            echo "⚠️ پوشه results در ریشه خالی است یا وجود ندارد"
+          fi
+          
+          exit $EXIT_CODE
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
@@ -330,23 +359,29 @@ jobs:
         if: always()
         run: |
           STRAT="${{ matrix.strategy_file }}"
-          START=${{ matrix.chunk }}
-          END=$(( ${{ matrix.chunk }} + 0 ))
-          RES_DIR="results/${STRAT}/chunk_${START}_${END}"
-          if [ -d "$RES_DIR" ]; then
-            echo "✅ پوشه $RES_DIR وجود دارد"
-            ls -la "$RES_DIR"
-          else
-            echo "❌ پوشه نتایج وجود ندارد. اطلاعات خطایابی:"
-            echo "   results/ وجود دارد؟ $([ -d results ] && echo بله || echo خیر)"
-            echo "   تست نوشتن: $(touch test_write 2>/dev/null && rm test_write && echo موفق || echo ناموفق)"
-            find . -name "results.enc" 2>/dev/null || echo "   هیچ فایل results.enc یافت نشد"
-          fi
+          echo "بررسی نتایج برای: $STRAT"
+          
+          # بررسی هر دو مسیر ممکن
+          for RES_DIR in "results" "encrypted_data/src/results"; do
+            if [ -d "$RES_DIR" ]; then
+              echo "✅ پوشه $RES_DIR وجود دارد"
+              ls -la "$RES_DIR" 2>/dev/null | head -20
+              find "$RES_DIR" -name "results.enc" 2>/dev/null | head -10
+            else
+              echo "ℹ️ پوشه $RES_DIR وجود ندارد"
+            fi
+          done
 
       - name: 7. ثبت نتایج در مخزن (برای هر چانک)
         if: always()
         run: |
-          if find results -name "results.enc" -print -quit | grep -q .; then
+          # 🔥 مطمئن شو results از encrypted_data/src هم بررسی شود
+          if [ -d "encrypted_data/src/results" ] && [ ! -d "results" ]; then
+            mkdir -p results
+            cp -r encrypted_data/src/results/* results/ 2>/dev/null || true
+          fi
+          
+          if [ -d "results" ] && find results -name "results.enc" -print -quit | grep -q .; then
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             # 🔥 ابتدا تغییرات unstaged (فایل‌های unlock شده و ...) را stash کن
@@ -357,6 +392,8 @@ jobs:
             # برگردوندن stash (اگر چیزی بود)
             git stash pop 2>/dev/null || true
             git push
+          else
+            echo "⚠️ هیچ فایل results.enc برای commit یافت نشد"
           fi
 
   # ============================================================
@@ -378,8 +415,10 @@ jobs:
         run: |
           if [ -d "results" ] && [ -n "$(ls -A results 2>/dev/null)" ]; then
             echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ results/ وجود دارد و خالی نیست"
           else
             echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ results/ وجود ندارد یا خالی است"
           fi
 
       - name: دریافت همه artifactها (در صورت وجود)
