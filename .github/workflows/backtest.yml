@@ -1,4 +1,4 @@
-### VERSION: FINAL (guaranteed no pathspec error - complete YAML) ###
+### VERSION: FINAL (fix pathspec by adding before stash, full yaml) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -477,33 +477,40 @@ jobs:
             find . -name "results.enc" 2>/dev/null || echo "   هیچ فایل results.enc یافت نشد"
           fi
 
-      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (تضمین‌شده بدون خطای pathspec)
+      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (رفع قطعی pathspec)
         if: always()
         run: |
-          # ۱. ایجاد پوشه results در ریشه اگر وجود ندارد
+          # ۱. پوشه results را همیشه در ریشه داشته باش
           mkdir -p results
-          
-          # ۲. کپی نتایج از مسیر احتمالی دیگر (اگر وجود دارد)
+
+          # ۲. نتایج تولید شده را از مسیر جایگزین کپی کن
           if [ -d encrypted_data/src/results ] && [ -n "$(ls -A encrypted_data/src/results 2>/dev/null)" ]; then
-            echo "📁 نتایج در مسیر جایگزین وجود دارد. کپی به results/ ریشه..."
+            echo "📁 کپی نتایج از encrypted_data/src/results ..."
             cp -r encrypted_data/src/results/* results/ 2>/dev/null || true
           fi
-          
-          # ۳. فقط در صورتی که results/ واقعاً حاوی فایل باشد، عملیات git را انجام بده
+
+          # ۳. حالا چک کن که آیا واقعاً فایلی در results هست یا خیر
           if [ -n "$(ls -A results 2>/dev/null)" ]; then
-            echo "✅ فایل‌هایی در results/ وجود دارد. در حال commit..."
+            echo "✅ results حاوی فایل است. در حال stage کردن..."
+
+            # ---------- تغییر مهم: اول add سپس stash ----------
+            # ابتدا تمام محتویات results (از جمله .gitkeep) را stage کن
+            git add -A results/
+            # سپس سایر فایل‌های untracked مزاحم را stash کن
+            git stash --include-untracked 2>/dev/null || true
+
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
-            git stash --include-untracked 2>/dev/null || true
-            git add results/
             git add logs/ 2>/dev/null || true
             git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
-            git pull --rebase || echo "⚠️ pull ناموفق بود - ادامه می‌دهیم"
-            git stash pop 2>/dev/null || true
+            git pull --rebase || echo "⚠️ pull ناموفق بود"
             git push || echo "⚠️ push ناموفق بود"
+
+            # حتماً stash pop کن
+            git stash pop 2>/dev/null || true
           else
-            echo "ℹ️ پوشه results/ خالی است. هیچ چیزی برای commit وجود ندارد."
-            # حتی در صورت خالی بودن results/، stash pop را انجام بده
+            echo "ℹ️ پوشه results خالی است. هیچ کاری انجام نمی‌شود."
+            # حتی اگر results خالی باشد، stash پاپ شود
             git stash pop 2>/dev/null || true
           fi
 
