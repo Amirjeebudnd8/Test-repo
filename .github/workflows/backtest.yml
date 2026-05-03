@@ -1,4 +1,4 @@
-### VERSION: FINAL (fixed extraction path, no empty files) ###
+### VERSION: FINAL (artifact only from /tmp/artifact_src, no empty files) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -102,8 +102,6 @@ jobs:
               tar -xzf src.tar.gz -C temp_src_restore
               mkdir -p encrypted_data/src
               cp -r temp_src_restore/* encrypted_data/src/ && rm -rf temp_src_restore src.tar.gz
-              echo "✅ سورس کد استخراج شد."
-              touch encrypted_data/src/.unlocked.flag && echo "🏁 پرچم ساخته شد."
             fi
 
             git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
@@ -305,7 +303,7 @@ jobs:
             echo "✅ $f ($SIZE بایت) آمادهٔ آپلود"
           done
 
-      # ---------- ۱۸. بارگذاری محیط آماده شده (فایل‌ها کامل هستند) ----------
+      # ---------- ۱۸. بارگذاری محیط آماده شده (فقط از مسیر موقت) ----------
       - name: 18. بارگذاری محیط آماده شده
         uses: actions/upload-artifact@v4
         with:
@@ -351,12 +349,18 @@ jobs:
       - name: بازیابی فایل‌ها از artifact به encrypted_data/src
         run: |
           mkdir -p encrypted_data/src
-          if [ -d /tmp/artifact_src ]; then
-            cp -r /tmp/artifact_src/* encrypted_data/src/
+          # artifact محتویات /tmp/artifact_src را مستقیماً در ریشه workspace قرار می‌دهد
+          # بنابراین فایل‌های backtest-core.js و غیره در ریشه workspace هستند
+          if [ -f backtest-core.js ]; then
+            echo "فایل‌ها در ریشه workspace یافت شدند. در حال کپی به encrypted_data/src..."
+            cp backtest-core.js divergence-detector.js run-backtest.js encrypted_data/src/
+          elif [ -f /tmp/artifact_src/backtest-core.js ]; then
+            echo "فایل‌ها در /tmp/artifact_src یافت شدند. در حال کپی..."
+            cp /tmp/artifact_src/* encrypted_data/src/
           else
-            echo "⚠️ /tmp/artifact_src وجود ندارد. بررسی ساختار artifact..."
-            ls -la .
-            find . -name "backtest-core.js" -type f 2>/dev/null | head -5
+            echo "جستجوی فایل‌های JavaScript در کل workspace..."
+            find . -name "backtest-core.js" -type f 2>/dev/null
+            exit 1
           fi
 
       - name: بررسی کامل بودن فایل‌های سورس
