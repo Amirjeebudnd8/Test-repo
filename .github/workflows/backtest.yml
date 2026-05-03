@@ -1,4 +1,3 @@
-### VERSION: FINAL (no node -e, no heredocs, clean YAML) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -38,6 +37,7 @@ jobs:
     timeout-minutes: 60
     outputs:
       strategies: ${{ steps.list_strategies.outputs.files }}
+      chunks:   ${{ steps.build_chunks.outputs.chunks }}
     steps:
       - name: 1. دریافت کد مخزن
         uses: actions/checkout@v5
@@ -64,7 +64,7 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  باز کردن قفل (unlock) - بدون تغییر از کد اصلی شما
+      #  باز کردن قفل (unlock)
       # ------------------------------------------------------------
       - name: 🔓 مدیریت باز کردن قفل
         id: unlock
@@ -78,22 +78,33 @@ jobs:
 
           if [ -f "$UNLOCK_FILE" ] && grep -q "^3$" "$UNLOCK_FILE"; then
             echo "📊 وضعیت unlock=3"
-            node encrypted_data/src/unlock-helper.js extract-results
-            git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
-            git add results/
-            git commit -m "extract results (unlock 3)" || true
-            git pull --rebase && git push
+            if [ -d results ]; then
+              find results -name "results.enc" -type f | while read ENC; do
+                DIR=$(dirname "$ENC")
+                node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.RESULTS_PASSWORD;const data=fs.readFileSync('$ENC');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('$DIR/results.tar.gz',dec);"
+                tar -xzf "$DIR/results.tar.gz" -C "$DIR" && rm -f "$DIR/results.tar.gz"
+              done
+              git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
+              git add results/
+              git commit -m "extract results (unlock 3)" || true
+              git pull --rebase && git push
+            fi
             rm -f "$UNLOCK_FILE" "$FLAG_FILE"
 
           elif [ -f "$UNLOCK_FILE" ] && grep -q "^1$" "$UNLOCK_FILE"; then
             echo "🔓 وضعیت unlock=1"
             echo "unlocked=true" >> $GITHUB_OUTPUT
-            mkdir -p temp_src_restore
-            node encrypted_data/src/unlock-helper.js extract-source
-            mkdir -p encrypted_data/src
-            cp -r temp_src_restore/* encrypted_data/src/ && rm -rf temp_src_restore
-            echo "✅ سورس کد استخراج شد."
-            touch encrypted_data/src/.unlocked.flag && echo "🏁 پرچم ساخته شد."
+
+            if [ -f encrypted_data/src.enc ]; then
+              mkdir -p temp_src_restore
+              node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src.tar.gz',dec);"
+              tar -xzf src.tar.gz -C temp_src_restore
+              mkdir -p encrypted_data/src
+              cp -r temp_src_restore/* encrypted_data/src/ && rm -rf temp_src_restore src.tar.gz
+              echo "✅ سورس کد استخراج شد."
+              touch encrypted_data/src/.unlocked.flag && echo "🏁 پرچم ساخته شد."
+            fi
+
             git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
             
             git add encrypted_data/src/*.js encrypted_data/src/.unlocked.flag 2>/dev/null || true
@@ -116,7 +127,7 @@ jobs:
             if [ -d "results" ]; then
               find results -type f ! -name "results.enc" \( -name "*.json" -o -name "*.tar.gz" \) -delete
               if find results -type f ! -name "results.enc" | grep -q .; then
-                git config user.name "github-actions[bot]" && git config.user.email "actions@github.com"
+                git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
                 git add results/ && git commit -m "cleanup results" || true
                 git pull --rebase && git push
               fi
@@ -156,14 +167,17 @@ jobs:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
           if [ -f encrypted_data/data.enc ]; then
-            node encrypted_data/src/encrypt-helper.js decrypt-data
+            node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.DATA_PASSWORD;const data=fs.readFileSync('encrypted_data/data.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('data.tar.gz',dec);"
+            mkdir -p data && tar -xzf data.tar.gz -C data && rm data.tar.gz
           fi
 
       - name: 9. بازسازی data.enc
         env:
           DATA_PASSWORD: ${{ secrets.DATA_PASSWORD }}
         run: |
-          node encrypted_data/src/encrypt-helper.js encrypt-data
+          cd data && tar -czf ../data.tar.gz All_Coins_Combined && cd ..
+          node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.DATA_PASSWORD;const key=crypto.scryptSync(pass,'salt',32);const iv=crypto.randomBytes(16);const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);const input=fs.readFileSync('data.tar.gz');const enc=Buffer.concat([cipher.update(input),cipher.final()]);fs.writeFileSync('encrypted_data/data.enc',Buffer.concat([iv,enc]));"
+          rm data.tar.gz
 
       # ---------- ۱۰-۱۲ رمزنگاری هوشمند فایل‌های سورس ----------
       - name: 10. تحلیل فایل‌های سورس
@@ -187,8 +201,8 @@ jobs:
           else
             mkdir -p temp_merge
             if [ -f encrypted_data/src.enc ]; then
-              node encrypted_data/src/unlock-helper.js extract-source
-              tar -xzf src.tar.gz -C temp_merge && rm src.tar.gz
+              node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src_old.tar.gz',dec);"
+              tar -xzf src_old.tar.gz -C temp_merge && rm src_old.tar.gz
             fi
             for f in encrypted_data/src/*.js encrypted_data/src/*.py; do
               [ -f "$f" ] && [ -s "$f" ] && cp "$f" temp_merge/
@@ -196,7 +210,7 @@ jobs:
             tar -czf src.tar.gz -C temp_merge .
             rm -rf temp_merge
           fi
-          node encrypted_data/src/encrypt-helper.js encrypt-source
+          node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const key=crypto.scryptSync(pass,'salt',32);const iv=crypto.randomBytes(16);const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);const input=fs.readFileSync('src.tar.gz');const enc=Buffer.concat([cipher.update(input),cipher.final()]);fs.writeFileSync('encrypted_data/src.enc',Buffer.concat([iv,enc]));"
           rm src.tar.gz
 
       - name: 12. پاک کردن محتوای فایل‌های سورس (نگه داشتن فایل‌ها)
@@ -207,7 +221,6 @@ jobs:
           rm -f encrypted_data/src/.unlocked.flag
           git add encrypted_data/src/ encrypted_data/src.enc
           git commit -m "wipe source files and update src.enc" || true
-          git config merge.ours.driver true && echo '*.enc merge=ours' >> .gitattributes
           git stash --include-untracked 2>/dev/null || true
           git pull --rebase && git stash pop 2>/dev/null || true
           git push
@@ -217,7 +230,7 @@ jobs:
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
-          node encrypted_data/src/unlock-helper.js extract-source
+          node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src.tar.gz',dec);"
           tar -xzf src.tar.gz && rm src.tar.gz
 
       - name: 14. راه‌اندازی Node.js
@@ -231,6 +244,21 @@ jobs:
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
+      - name: 17. ساختن چانک‌های پویا (هر چانک شامل ۵ فایل CSV)
+        id: build_chunks
+        run: |
+          cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
+          size=5
+          n=$(( (cnt + size - 1) / size ))
+          chunks="["
+          for ((i=0; i<n; i++)); do
+            s=$((i*size))
+            [ $i -gt 0 ] && chunks+=", "
+            chunks+="$s"
+          done
+          chunks+="]"
+          echo "chunks=$chunks" >> $GITHUB_OUTPUT
+
       - name: 18. بارگذاری محیط آماده شده
         uses: actions/upload-artifact@v4
         with:
@@ -242,51 +270,76 @@ jobs:
             node_modules/
             package.json
 
-  # ============================================================
-  # گروه ۱ – فایل‌های 0 تا 249
-  # ============================================================
-  backtest-group-1:
+  backtest:
     needs: [check-completion, prepare]
     if: needs.prepare.outputs.strategies != '[]'
     runs-on: ubuntu-latest
     timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      max-parallel: 250
+      matrix:
+        strategy_file: ${{ fromJson(needs.prepare.outputs.strategies) }}
+        chunk: ${{ fromJson(needs.prepare.outputs.chunks) }}
     steps:
-      - uses: actions/checkout@v5
-        with: { token: ${{ secrets.GITHUB_TOKEN }} }
-      - uses: actions/download-artifact@v4
-        with: { name: prep }
-      - uses: actions/setup-node@v4
+      - name: 1. دریافت کد مخزن
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: 2. دریافت محیط آماده شده
+        uses: actions/download-artifact@v4
+        with:
+          name: prep
+
+      - name: 3. راه‌اندازی Node.js
+        uses: actions/setup-node@v4
         with: { node-version: '18' }
-      - run: mkdir -p results logs
-      - name: اجرای بک‌تست (ایندکس 0-249)
+
+      - name: 🩺 4. بررسی سلامت قبل از اجرا
+        shell: bash
+        run: |
+          set +e
+          echo "=============================================="
+          echo "   📊 گزارش سلامت پیش از اجرا"
+          echo "=============================================="
+          DATA_DIR="data/All_Coins_Combined"
+          [ ! -d "$DATA_DIR" ] && { echo "❌ خطای مرگبار: پوشه داده وجود ندارد."; exit 1; }
+          mapfile -t CSV_FILES < <(find "$DATA_DIR" -maxdepth 1 -name "*.csv" -print0 | xargs -0 ls -1 2>/dev/null)
+          echo "✅ تعداد کل فایل‌های CSV: ${#CSV_FILES[@]}"
+          [ ${#CSV_FILES[@]} -gt 0 ] && echo "   اولین: $(basename "${CSV_FILES[0]}")   آخرین: $(basename "${CSV_FILES[-1]}")"
+          for cf in encrypted_data/src/backtest-core.js encrypted_data/src/divergence-detector.js encrypted_data/src/run-backtest.js encrypted_data/src/trendline-detector.js encrypted_data/src/ichimoku-calculator.js encrypted_data/src/breakpoint-generator.js; do
+            [ -f "$cf" ] || { echo "❌ $cf پیدا نشد"; exit 1; }
+          done
+          echo "✅ همه بررسی‌های سلامت با موفقیت گذشت."
+
+      - name: 5. اجرای بکتست برای یک فایل (یک چانک)
+        continue-on-error: true
+        run: |
+          node encrypted_data/src/run-backtest.js \
+            --strategy-file "strategies/${{ matrix.strategy_file }}" \
+            --start-index ${{ matrix.chunk }} \
+            --data-dir data/All_Coins_Combined
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
-        run: |
-          set -x
-          for index in $(seq 0 249); do
-            echo "===== شروع بکتست برای ایندکس $index ====="
-            node encrypted_data/src/run-backtest.js \
-              --strategy-file "strategies/${{ fromJson(needs.prepare.outputs.strategies)[0] }}" \
-              --start-index $index \
-              --data-dir data/All_Coins_Combined \
-              2>&1 | tee logs/backtest-$index.log
-            EXIT_CODE=$?
-            echo "===== پایان بکتست (کد خروجی: $EXIT_CODE) ====="
-            if [ $EXIT_CODE -ne 0 ]; then
-              echo "❌ خطا در پردازش فایل $index"
-            else
-              echo "✅ بکتست فایل $index با موفقیت پایان یافت."
-            fi
-          done
-      - name: نمایش لاگ‌ها
+
+      - name: 🩺 6. بررسی پس از اجرا
         if: always()
         run: |
-          for f in logs/backtest-*.log; do
-            echo "======= محتوای $f ======="
-            cat "$f"
-            echo "======= پایان $f ======="
-          done
-      - name: ثبت نتایج
+          STRAT="${{ matrix.strategy_file }}"
+          START=${{ matrix.chunk }}
+          RES_DIR="results/${STRAT}/chunk_${START}"
+          if [ -d "$RES_DIR" ]; then
+            echo "✅ پوشه $RES_DIR وجود دارد"
+            ls -la "$RES_DIR"
+          else
+            echo "❌ پوشه نتایج وجود ندارد. اطلاعات خطایابی:"
+            echo "   results/ وجود دارد؟ $([ -d results ] && echo بله || echo خیر)"
+            echo "   تست نوشتن: $(touch test_write 2>/dev/null && rm test_write && echo موفق || echo ناموفق)"
+            find . -name "results.enc" 2>/dev/null || echo "   هیچ فایل results.enc یافت نشد"
+          fi
+
+      - name: 7. ثبت نتایج در مخزن (برای هر چانک)
         if: always()
         run: |
           if find results -name "results.enc" -print -quit | grep -q .; then
@@ -294,266 +347,27 @@ jobs:
             git config user.email "actions@github.com"
             git stash --include-untracked 2>/dev/null || true
             git add results/
-            git commit -m "بکتست گروه 1" || true
+            git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
             git pull --rebase
             git stash pop 2>/dev/null || true
             git push
-          else
-            echo "هیچ فایل results.enc یافت نشد."
           fi
 
   # ============================================================
-  # گروه ۲ – فایل‌های 250 تا 499
-  # ============================================================
-  backtest-group-2:
-    needs: [check-completion, prepare]
-    if: needs.prepare.outputs.strategies != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 330
-    steps:
-      - uses: actions/checkout@v5
-        with: { token: ${{ secrets.GITHUB_TOKEN }} }
-      - uses: actions/download-artifact@v4
-        with: { name: prep }
-      - uses: actions/setup-node@v4
-        with: { node-version: '18' }
-      - run: mkdir -p results logs
-      - name: اجرای بک‌تست (ایندکس 250-499)
-        env:
-          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
-        run: |
-          set -x
-          for index in $(seq 250 499); do
-            echo "===== شروع بکتست برای ایندکس $index ====="
-            node encrypted_data/src/run-backtest.js \
-              --strategy-file "strategies/${{ fromJson(needs.prepare.outputs.strategies)[0] }}" \
-              --start-index $index \
-              --data-dir data/All_Coins_Combined \
-              2>&1 | tee logs/backtest-$index.log
-            EXIT_CODE=$?
-            echo "===== پایان بکتست (کد خروجی: $EXIT_CODE) ====="
-            if [ $EXIT_CODE -ne 0 ]; then
-              echo "❌ خطا در پردازش فایل $index"
-            else
-              echo "✅ بکتست فایل $index با موفقیت پایان یافت."
-            fi
-          done
-      - name: نمایش لاگ‌ها
-        if: always()
-        run: |
-          for f in logs/backtest-*.log; do
-            echo "======= محتوای $f ======="
-            cat "$f"
-            echo "======= پایان $f ======="
-          done
-      - name: ثبت نتایج
-        if: always()
-        run: |
-          if find results -name "results.enc" -print -quit | grep -q .; then
-            git config user.name "github-actions[bot]"
-            git config user.email "actions@github.com"
-            git stash --include-untracked 2>/dev/null || true
-            git add results/
-            git commit -m "بکتست گروه 2" || true
-            git pull --rebase
-            git stash pop 2>/dev/null || true
-            git push
-          else
-            echo "هیچ فایل results.enc یافت نشد."
-          fi
-
-  # ============================================================
-  # گروه ۳ – فایل‌های 500 تا 749
-  # ============================================================
-  backtest-group-3:
-    needs: [check-completion, prepare]
-    if: needs.prepare.outputs.strategies != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 330
-    steps:
-      - uses: actions/checkout@v5
-        with: { token: ${{ secrets.GITHUB_TOKEN }} }
-      - uses: actions/download-artifact@v4
-        with: { name: prep }
-      - uses: actions/setup-node@v4
-        with: { node-version: '18' }
-      - run: mkdir -p results logs
-      - name: اجرای بک‌تست (ایندکس 500-749)
-        env:
-          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
-        run: |
-          set -x
-          for index in $(seq 500 749); do
-            echo "===== شروع بکتست برای ایندکس $index ====="
-            node encrypted_data/src/run-backtest.js \
-              --strategy-file "strategies/${{ fromJson(needs.prepare.outputs.strategies)[0] }}" \
-              --start-index $index \
-              --data-dir data/All_Coins_Combined \
-              2>&1 | tee logs/backtest-$index.log
-            EXIT_CODE=$?
-            echo "===== پایان بکتست (کد خروجی: $EXIT_CODE) ====="
-            if [ $EXIT_CODE -ne 0 ]; then
-              echo "❌ خطا در پردازش فایل $index"
-            else
-              echo "✅ بکتست فایل $index با موفقیت پایان یافت."
-            fi
-          done
-      - name: نمایش لاگ‌ها
-        if: always()
-        run: |
-          for f in logs/backtest-*.log; do
-            echo "======= محتوای $f ======="
-            cat "$f"
-            echo "======= پایان $f ======="
-          done
-      - name: ثبت نتایج
-        if: always()
-        run: |
-          if find results -name "results.enc" -print -quit | grep -q .; then
-            git config user.name "github-actions[bot]"
-            git config user.email "actions@github.com"
-            git stash --include-untracked 2>/dev/null || true
-            git add results/
-            git commit -m "بکتست گروه 3" || true
-            git pull --rebase
-            git stash pop 2>/dev/null || true
-            git push
-          else
-            echo "هیچ فایل results.enc یافت نشد."
-          fi
-
-  # ============================================================
-  # گروه ۴ – فایل‌های 750 تا 999
-  # ============================================================
-  backtest-group-4:
-    needs: [check-completion, prepare]
-    if: needs.prepare.outputs.strategies != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 330
-    steps:
-      - uses: actions/checkout@v5
-        with: { token: ${{ secrets.GITHUB_TOKEN }} }
-      - uses: actions/download-artifact@v4
-        with: { name: prep }
-      - uses: actions/setup-node@v4
-        with: { node-version: '18' }
-      - run: mkdir -p results logs
-      - name: اجرای بک‌تست (ایندکس 750-999)
-        env:
-          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
-        run: |
-          set -x
-          for index in $(seq 750 999); do
-            echo "===== شروع بکتست برای ایندکس $index ====="
-            node encrypted_data/src/run-backtest.js \
-              --strategy-file "strategies/${{ fromJson(needs.prepare.outputs.strategies)[0] }}" \
-              --start-index $index \
-              --data-dir data/All_Coins_Combined \
-              2>&1 | tee logs/backtest-$index.log
-            EXIT_CODE=$?
-            echo "===== پایان بکتست (کد خروجی: $EXIT_CODE) ====="
-            if [ $EXIT_CODE -ne 0 ]; then
-              echo "❌ خطا در پردازش فایل $index"
-            else
-              echo "✅ بکتست فایل $index با موفقیت پایان یافت."
-            fi
-          done
-      - name: نمایش لاگ‌ها
-        if: always()
-        run: |
-          for f in logs/backtest-*.log; do
-            echo "======= محتوای $f ======="
-            cat "$f"
-            echo "======= پایان $f ======="
-          done
-      - name: ثبت نتایج
-        if: always()
-        run: |
-          if find results -name "results.enc" -print -quit | grep -q .; then
-            git config user.name "github-actions[bot]"
-            git config user.email "actions@github.com"
-            git stash --include-untracked 2>/dev/null || true
-            git add results/
-            git commit -m "بکتست گروه 4" || true
-            git pull --rebase
-            git stash pop 2>/dev/null || true
-            git push
-          else
-            echo "هیچ فایل results.enc یافت نشد."
-          fi
-
-  # ============================================================
-  # گروه ۵ – فایل‌های 1000 تا 1099
-  # ============================================================
-  backtest-group-5:
-    needs: [check-completion, prepare]
-    if: needs.prepare.outputs.strategies != '[]'
-    runs-on: ubuntu-latest
-    timeout-minutes: 330
-    steps:
-      - uses: actions/checkout@v5
-        with: { token: ${{ secrets.GITHUB_TOKEN }} }
-      - uses: actions/download-artifact@v4
-        with: { name: prep }
-      - uses: actions/setup-node@v4
-        with: { node-version: '18' }
-      - run: mkdir -p results logs
-      - name: اجرای بک‌تست (ایندکس 1000-1099)
-        env:
-          RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
-        run: |
-          set -x
-          for index in $(seq 1000 1099); do
-            echo "===== شروع بکتست برای ایندکس $index ====="
-            node encrypted_data/src/run-backtest.js \
-              --strategy-file "strategies/${{ fromJson(needs.prepare.outputs.strategies)[0] }}" \
-              --start-index $index \
-              --data-dir data/All_Coins_Combined \
-              2>&1 | tee logs/backtest-$index.log
-            EXIT_CODE=$?
-            echo "===== پایان بکتست (کد خروجی: $EXIT_CODE) ====="
-            if [ $EXIT_CODE -ne 0 ]; then
-              echo "❌ خطا در پردازش فایل $index"
-            else
-              echo "✅ بکتست فایل $index با موفقیت پایان یافت."
-            fi
-          done
-      - name: نمایش لاگ‌ها
-        if: always()
-        run: |
-          for f in logs/backtest-*.log; do
-            echo "======= محتوای $f ======="
-            cat "$f"
-            echo "======= پایان $f ======="
-          done
-      - name: ثبت نتایج
-        if: always()
-        run: |
-          if find results -name "results.enc" -print -quit | grep -q .; then
-            git config user.name "github-actions[bot]"
-            git config user.email "actions@github.com"
-            git stash --include-untracked 2>/dev/null || true
-            git add results/
-            git commit -m "بکتست گروه 5" || true
-            git pull --rebase
-            git stash pop 2>/dev/null || true
-            git push
-          else
-            echo "هیچ فایل results.enc یافت نشد."
-          fi
-
-  # ============================================================
-  # رمزنگاری نهایی
+  # رمزنگاری یکپارچه کل پوشه results (یک فایل results.enc در ریشه)
   # ============================================================
   finalize-encryption:
-    needs: [backtest-group-1, backtest-group-2, backtest-group-3, backtest-group-4, backtest-group-5]
+    needs: [backtest]
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v5
-        with: { token: ${{ secrets.GITHUB_TOKEN }} }
-      - name: بررسی وجود پوشه results
+      - name: دریافت کد مخزن
+        uses: actions/checkout@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: بررسی وجود پوشه results و محتوای آن
         id: check_results
         run: |
           if [ -d "results" ] && [ -n "$(ls -A results 2>/dev/null)" ]; then
@@ -561,20 +375,54 @@ jobs:
           else
             echo "exists=false" >> $GITHUB_OUTPUT
           fi
-      - name: رمزنگاری نهایی
+
+      - name: دریافت همه artifactها (در صورت وجود)
+        if: steps.check_results.outputs.exists == 'true'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+
+      - name: فشرده‌سازی و رمزنگاری کل پوشه results
         if: steps.check_results.outputs.exists == 'true'
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
         run: |
-          node encrypted_data/src/encrypt-helper.js encrypt-results
-          rm -rf results
+          echo "📦 در حال فشرده‌سازی کل پوشه results..."
+          tar -czf results.tar.gz results
+          echo "🔐 در حال رمزنگاری results.tar.gz..."
+          node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.RESULTS_PASSWORD;const key=crypto.scryptSync(pass,'salt',32);const iv=crypto.randomBytes(16);const cipher=crypto.createCipheriv('aes-256-cbc',key,iv);const input=fs.readFileSync('results.tar.gz');const enc=Buffer.concat([cipher.update(input),cipher.final()]);fs.writeFileSync('results.enc',Buffer.concat([iv,enc]));"
+          rm -f results.tar.gz
+          echo "✅ فایل results.enc ساخته شد."
+
+      - name: حذف پوشه results رمزگشایی نشده
+        if: steps.check_results.outputs.exists == 'true'
+        run: |
+          if [ -f "results.enc" ]; then
+            rm -rf results
+            echo "🧹 پوشه results رمزگشایی نشده حذف شد."
+          fi
+
+      - name: ثبت فایل رمزنگاری شده نهایی در مخزن
+        if: steps.check_results.outputs.exists == 'true'
+        run: |
           git config user.name "github-actions[bot]"
           git config user.email "actions@github.com"
           git add results.enc
-          git commit -m "نهایی: نتایج رمزنگاری شده" || true
-          git pull --rebase && git push
-      - name: فراخوانی چرخه
+          git rm -rf results/ 2>/dev/null || true
+          git commit -m "نهایی: یک فایل رمزنگاری شده results.enc" || echo "تغییری برای ثبت وجود ندارد"
+          git pull --rebase
+          git push
+
+      - name: بدون نتیجه برای رمزنگاری
+        if: steps.check_results.outputs.exists == 'false'
+        run: |
+          echo "پوشه results یافت نشد. مرحله رمزنگاری انجام نشد."
+
+      # ------------------------------------------------------------
+      # فراخوانی ردفلو فرعی (چرخه) در پایان کار
+      # ------------------------------------------------------------
+      - name: فراخوانی ردفلو چرخه
         if: always()
-        run: gh workflow run loop.yml --ref ${{ github.ref_name }}
+        run: |
+          gh workflow run loop.yml --ref ${{ github.ref_name }}
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
