@@ -1,4 +1,4 @@
-### VERSION: FINAL (artifact only from /tmp/artifact_src, no empty files) ###
+### VERSION: FINAL (intelligent file find, no hardcoded paths, guaranteed) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -345,23 +345,28 @@ jobs:
         uses: actions/setup-node@v4
         with: { node-version: '18' }
 
-      # ---------- 🛡️ چک‌لیست ۳: بازیابی و تأیید فایل‌ها در job backtest ----------
-      - name: بازیابی فایل‌ها از artifact به encrypted_data/src
+      # ---------- 🛡️ چک‌لیست ۳: جستجوی هوشمند فایل‌ها و کپی آنها ----------
+      - name: بازیابی فایل‌ها از artifact با جستجوی هوشمند
         run: |
           mkdir -p encrypted_data/src
-          # artifact محتویات /tmp/artifact_src را مستقیماً در ریشه workspace قرار می‌دهد
-          # بنابراین فایل‌های backtest-core.js و غیره در ریشه workspace هستند
-          if [ -f backtest-core.js ]; then
-            echo "فایل‌ها در ریشه workspace یافت شدند. در حال کپی به encrypted_data/src..."
-            cp backtest-core.js divergence-detector.js run-backtest.js encrypted_data/src/
-          elif [ -f /tmp/artifact_src/backtest-core.js ]; then
-            echo "فایل‌ها در /tmp/artifact_src یافت شدند. در حال کپی..."
-            cp /tmp/artifact_src/* encrypted_data/src/
-          else
-            echo "جستجوی فایل‌های JavaScript در کل workspace..."
-            find . -name "backtest-core.js" -type f 2>/dev/null
-            exit 1
-          fi
+          echo "جستجوی فایل‌های JavaScript در کل workspace..."
+          for f in backtest-core.js divergence-detector.js run-backtest.js; do
+            # جستجوی فایل در کل workspace، اما نادیده گرفتن مسیر encrypted_data/src (که ممکن است خالی باشد)
+            FOUND=$(find . -name "$f" -type f -not -path "./encrypted_data/src/*" 2>/dev/null | head -1)
+            if [ -z "$FOUND" ]; then
+              # شاید artifact مستقیماً فایل‌ها را در ریشه قرار داده باشد (بدون tmp)
+              FOUND=$(find . -maxdepth 1 -name "$f" -type f 2>/dev/null | head -1)
+            fi
+            if [ -n "$FOUND" ]; then
+              echo "✅ $f پیدا شد: $FOUND (حجم: $(stat -c%s "$FOUND") بایت)"
+              cp "$FOUND" encrypted_data/src/
+            else
+              echo "❌ $f در هیچ‌جای workspace پیدا نشد!"
+              find . -name "$f" -type f 2>/dev/null || true
+              exit 1
+            fi
+          done
+          echo "✅ همه فایل‌ها با موفقیت کپی شدند."
 
       - name: بررسی کامل بودن فایل‌های سورس
         run: |
@@ -370,7 +375,6 @@ jobs:
           for f in encrypted_data/src/backtest-core.js encrypted_data/src/divergence-detector.js encrypted_data/src/run-backtest.js; do
             if [ ! -f "$f" ]; then
               echo "❌ $f وجود ندارد!"
-              find . -name "$(basename $f)" -type f 2>/dev/null
               exit 1
             fi
             SIZE=$(stat -c%s "$f")
