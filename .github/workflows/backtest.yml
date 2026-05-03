@@ -1,4 +1,4 @@
-### VERSION: FINAL (no defaults, extract config, full logging, no continue-on-error) ###
+### VERSION: FINAL (artifact after source restore, full security) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -226,7 +226,7 @@ jobs:
           git pull --rebase && git stash pop 2>/dev/null || true
           git push
 
-      # ---------- ۱۳-۱۵ رمزگشایی سورس برای بکتست ----------
+      # ---------- ۱۳. رمزگشایی src.enc برای بکتست (فایل‌ها بازمی‌گردند) ----------
       - name: 13. رمزگشایی src.enc برای بکتست
         env:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
@@ -234,18 +234,19 @@ jobs:
           node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src.tar.gz',dec);"
           tar -xzf src.tar.gz && rm src.tar.gz
 
-      - name: 14. راه‌اندازی Node.js
+      # ---------- اکنون فایل‌ها در encrypted_data/src/ کامل هستند ----------
+      - name: 14. راه‌اندازی Node.js و نصب papaparse
         uses: actions/setup-node@v4
         with: { node-version: '18' }
       - run: npm install papaparse
 
-      - name: 16. لیست کردن استراتژی‌ها
+      - name: 15. لیست کردن استراتژی‌ها
         id: list_strategies
         run: |
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: 17. ساختن چانک‌های پویا (هر چانک شامل ۵ فایل CSV)
+      - name: 16. ساختن چانک‌های پویا (هر چانک شامل ۵ فایل CSV)
         id: build_chunks
         run: |
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
@@ -260,7 +261,7 @@ jobs:
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
-      - name: 18. بارگذاری محیط آماده شده
+      - name: 17. بارگذاری محیط آماده شده (فایل‌ها کامل هستند)
         uses: actions/upload-artifact@v4
         with:
           name: prep
@@ -293,24 +294,23 @@ jobs:
         with:
           name: prep
 
-      - name: 3. راه‌اندازی Ruby و Node
+      - name: 3. راه‌اندازی Node.js
         uses: actions/setup-node@v4
         with: { node-version: '18' }
 
-      - name: نصب papaparse در پوشه src
+      - name: بررسی کامل بودن فایل‌های سورس
         run: |
-          cd encrypted_data/src
-          npm init -y 2>/dev/null || true
-          npm install papaparse
+          echo "===== حجم فایل‌های JS ====="
+          ls -l encrypted_data/src/*.js
+          for f in encrypted_data/src/backtest-core.js encrypted_data/src/divergence-detector.js encrypted_data/src/run-backtest.js; do
+            if [ ! -s "$f" ]; then
+              echo "❌ $f خالی است!"
+              exit 1
+            fi
+          done
+          echo "✅ همه فایل‌ها کامل هستند."
 
-      - name: بررسی ساختار فایل‌ها
-        run: |
-          echo "===== محتوای encrypted_data/src ====="
-          ls -la encrypted_data/src/
-          echo "===== تست require backtest-core ====="
-          node -e "require('./encrypted_data/src/backtest-core.js')" && echo "✅ backtest-core بارگذاری شد" || echo "❌ خطا در بارگذاری backtest-core"
-
-      - name: ساختن پوشه‌های نتایج و لاگ
+      - name: ساختن پوشه‌های results و logs
         run: |
           mkdir -p results
           mkdir -p logs
@@ -332,7 +332,7 @@ jobs:
           done
           echo "✅ همه بررسی‌های سلامت با موفقیت گذشت."
 
-      - name: 5. اجرای بکتست (با لاگ‌گیری کامل، بدون continue-on-error)
+      - name: 5. اجرای بکتست (با لاگ‌گیری کامل)
         run: |
           set -e
           echo "===== شروع بکتست برای چانک ${{ matrix.chunk }} ====="
@@ -360,14 +360,10 @@ jobs:
           if [ -f logs/backtest-output-${{ matrix.chunk }}.log ]; then
             echo "======= محتوای لاگ output ======="
             cat logs/backtest-output-${{ matrix.chunk }}.log
-          else
-            echo "❌ فایل لاگ output یافت نشد."
           fi
           if [ -f logs/backtest.log ]; then
             echo "======= محتوای لاگ داخلی ======="
             cat logs/backtest.log
-          else
-            echo "ℹ️ فایل لاگ داخلی وجود ندارد."
           fi
 
       - name: 🩺 6. بررسی پس از اجرا
