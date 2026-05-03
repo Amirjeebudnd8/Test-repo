@@ -1,4 +1,4 @@
-### VERSION: FINAL (papaparse auto-install, smart find, no more errors) ###
+### VERSION: FINAL (copy results, guaranteed no pathspec error) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -351,7 +351,6 @@ jobs:
           mkdir -p encrypted_data/src
           echo "جستجوی فایل‌های JavaScript غیرخالی در کل workspace..."
           for f in backtest-core.js divergence-detector.js run-backtest.js; do
-            # جستجوی فایل با حجم > 0، نادیده گرفتن مسیرهای خالی احتمالی
             FOUND=$(find . -name "$f" -type f -size +0c -not -path "./encrypted_data/src/*" 2>/dev/null | head -1)
             if [ -z "$FOUND" ]; then
               FOUND=$(find . -name "$f" -type f -size +0c 2>/dev/null | head -1)
@@ -437,6 +436,17 @@ jobs:
           fi
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
+
+      - name: کپی نتایج از encrypted_data/src/results به ریشه
+        if: always()
+        run: |
+          if [ -d encrypted_data/src/results ]; then
+            echo "📁 نتایج در encrypted_data/src/results پیدا شد. در حال کپی به results/ ..."
+            cp -r encrypted_data/src/results/* results/ 2>/dev/null || true
+            ls -la results/
+          else
+            echo "ℹ️ پوشه encrypted_data/src/results وجود ندارد."
+          fi
 
       - name: نمایش فایل لاگ برای بررسی
         if: always()
