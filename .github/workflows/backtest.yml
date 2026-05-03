@@ -1,4 +1,4 @@
-### VERSION: FINAL (size=5, full logging, no compression) ###
+### VERSION: FINAL (no defaults, extract config, full logging, no continue-on-error) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -65,7 +65,7 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  باز کردن قفل (unlock)
+      #  باز کردن قفل (unlock) – دقیقاً مطابق نسخهٔ اصلی شما
       # ------------------------------------------------------------
       - name: 🔓 مدیریت باز کردن قفل
         id: unlock
@@ -293,15 +293,27 @@ jobs:
         with:
           name: prep
 
-      - name: 3. راه‌اندازی Node.js
+      - name: 3. راه‌اندازی Ruby و Node
         uses: actions/setup-node@v4
         with: { node-version: '18' }
 
-      - name: ساختن پوشه‌های ضروری (results و logs)
+      - name: نصب papaparse در پوشه src
+        run: |
+          cd encrypted_data/src
+          npm init -y 2>/dev/null || true
+          npm install papaparse
+
+      - name: بررسی ساختار فایل‌ها
+        run: |
+          echo "===== محتوای encrypted_data/src ====="
+          ls -la encrypted_data/src/
+          echo "===== تست require backtest-core ====="
+          node -e "require('./encrypted_data/src/backtest-core.js')" && echo "✅ backtest-core بارگذاری شد" || echo "❌ خطا در بارگذاری backtest-core"
+
+      - name: ساختن پوشه‌های نتایج و لاگ
         run: |
           mkdir -p results
           mkdir -p logs
-          echo "پوشه‌های results و logs ساخته شدند."
 
       - name: 🩺 4. بررسی سلامت قبل از اجرا
         shell: bash
@@ -320,15 +332,9 @@ jobs:
           done
           echo "✅ همه بررسی‌های سلامت با موفقیت گذشت."
 
-      - name: آماده‌سازی لاگ قبل از بک‌تست
+      - name: 5. اجرای بکتست (با لاگ‌گیری کامل، بدون continue-on-error)
         run: |
-          echo "شروع لاگ برای چانک ${{ matrix.chunk }} در $(date)" > logs/backtest-output-${{ matrix.chunk }}.log
-          echo "مسیر کامل فایل لاگ: $(pwd)/logs/backtest-output-${{ matrix.chunk }}.log"
-          echo "دسترسی نوشتن: $([ -w logs ] && echo 'بله' || echo 'خیر')"
-
-      - name: 5. اجرای بکتست (با لاگ‌گیری کامل)
-        continue-on-error: true
-        run: |
+          set -e
           echo "===== شروع بکتست برای چانک ${{ matrix.chunk }} ====="
           echo "استراتژی: ${{ matrix.strategy_file }}"
           echo "================================================================"
@@ -336,13 +342,14 @@ jobs:
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
             --data-dir data/All_Coins_Combined \
-            2>&1 | tee -a logs/backtest-output-${{ matrix.chunk }}.log
+            2>&1 | tee logs/backtest-output-${{ matrix.chunk }}.log
           EXIT_CODE=$?
           echo "===== پایان بکتست (کد خروجی: $EXIT_CODE) ====="
           if [ $EXIT_CODE -ne 0 ]; then
-            echo "❌ خطا در چانک ${{ matrix.chunk }}" | tee -a logs/backtest-output-${{ matrix.chunk }}.log
+            echo "❌ خطا در چانک ${{ matrix.chunk }}"
+            exit 1
           else
-            echo "✅ چانک ${{ matrix.chunk }} با موفقیت پایان یافت." | tee -a logs/backtest-output-${{ matrix.chunk }}.log
+            echo "✅ چانک ${{ matrix.chunk }} با موفقیت پایان یافت."
           fi
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
@@ -350,13 +357,17 @@ jobs:
       - name: نمایش فایل لاگ برای بررسی
         if: always()
         run: |
-          LOG_FILE="logs/backtest-output-${{ matrix.chunk }}.log"
-          if [ -f "$LOG_FILE" ]; then
-            echo "======= محتوای فایل لاگ ($LOG_FILE) ======="
-            cat "$LOG_FILE"
-            echo "======= پایان فایل لاگ ======="
+          if [ -f logs/backtest-output-${{ matrix.chunk }}.log ]; then
+            echo "======= محتوای لاگ output ======="
+            cat logs/backtest-output-${{ matrix.chunk }}.log
           else
-            echo "❌ فایل لاگ $LOG_FILE وجود ندارد. امکان ذخیره‌سازی لاگ وجود نداشته است."
+            echo "❌ فایل لاگ output یافت نشد."
+          fi
+          if [ -f logs/backtest.log ]; then
+            echo "======= محتوای لاگ داخلی ======="
+            cat logs/backtest.log
+          else
+            echo "ℹ️ فایل لاگ داخلی وجود ندارد."
           fi
 
       - name: 🩺 6. بررسی پس از اجرا
