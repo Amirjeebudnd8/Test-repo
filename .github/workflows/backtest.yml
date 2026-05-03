@@ -1,4 +1,4 @@
-### VERSION: FINAL (با چک‌لیست کامل، هیچ فایل خالی در artifact نمی‌رود) ###
+### VERSION: FINAL (fixed extraction path, no empty files) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -232,7 +232,8 @@ jobs:
           CODE_PASSWORD: ${{ secrets.CODE_PASSWORD }}
         run: |
           node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src.tar.gz',dec);"
-          tar -xzf src.tar.gz && rm src.tar.gz
+          tar -xzf src.tar.gz -C encrypted_data/src
+          rm src.tar.gz
 
       # ---------- 🛡️ چک‌لیست ۱: اطمینان از کامل بودن فایل‌ها ----------
       - name: بررسی کامل بودن فایل‌های سورس پس از بازیابی
@@ -355,7 +356,6 @@ jobs:
           else
             echo "⚠️ /tmp/artifact_src وجود ندارد. بررسی ساختار artifact..."
             ls -la .
-            # تلاش برای یافتن فایل‌ها
             find . -name "backtest-core.js" -type f 2>/dev/null | head -5
           fi
 
@@ -366,7 +366,6 @@ jobs:
           for f in encrypted_data/src/backtest-core.js encrypted_data/src/divergence-detector.js encrypted_data/src/run-backtest.js; do
             if [ ! -f "$f" ]; then
               echo "❌ $f وجود ندارد!"
-              # جستجوی فایل در کل workspace
               find . -name "$(basename $f)" -type f 2>/dev/null
               exit 1
             fi
