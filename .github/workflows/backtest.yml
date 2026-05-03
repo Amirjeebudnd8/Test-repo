@@ -1,4 +1,4 @@
-### VERSION: FINAL (copy results, guaranteed no pathspec error) ###
+### VERSION: FINAL (guaranteed results copy, no pathspec error, full yaml) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -479,18 +479,34 @@ jobs:
       - name: 7. ثبت نتایج و لاگ‌ها در مخزن
         if: always()
         run: |
-          if find results -name "results.enc" -print -quit | grep -q .; then
+          # ۱. پوشه results را حتماً در ریشه بساز (اگر وجود ندارد)
+          mkdir -p results
+          
+          # ۲. محتویات احتمالی از مسیر جایگزین را کپی کن
+          if [ -d encrypted_data/src/results ] && [ -n "$(ls -A encrypted_data/src/results 2>/dev/null)" ]; then
+            echo "📁 کپی نتایج از مسیر جایگزین..."
+            cp -r encrypted_data/src/results/* results/ 2>/dev/null || true
+          fi
+          
+          # ۳. حالا به دنبال فایل results.enc بگرد (در هر جایی)
+          ENC_FILE=$(find results -name "results.enc" -type f 2>/dev/null | head -1)
+          if [ -n "$ENC_FILE" ]; then
+            echo "✅ فایل results.enc پیدا شد: $ENC_FILE"
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
+            # stash کردن تغییرات مزاحم
             git stash --include-untracked 2>/dev/null || true
             git add results/
-            git add logs/
+            git add logs/ 2>/dev/null || true
             git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
-            git pull --rebase
-            git stash pop 2>/dev/null || true
-            git push
+            # pull و stash pop را در یک بلاک امن اجرا کن
+            git pull --rebase || echo "⚠️ pull ناموفق بود"
+            git stash pop 2>/dev/null || echo "ℹ️ stash خالی بود"
+            git push || echo "⚠️ push ناموفق بود"
           else
             echo "هیچ فایل results.enc برای commit یافت نشد."
+            # stash pop را حتی در این حالت هم اجرا کن
+            git stash pop 2>/dev/null || true
           fi
 
   # ============================================================
