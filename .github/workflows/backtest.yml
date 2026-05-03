@@ -1,4 +1,4 @@
-### VERSION: FINAL (artifact after source restore, full security) ###
+### VERSION: FINAL (artifact after source restore, no empty files) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -234,19 +234,27 @@ jobs:
           node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src.tar.gz',dec);"
           tar -xzf src.tar.gz && rm src.tar.gz
 
-      # ---------- اکنون فایل‌ها در encrypted_data/src/ کامل هستند ----------
-      - name: 14. راه‌اندازی Node.js و نصب papaparse
+      # ---------- ۱۴. کپی فایل‌های کامل به مسیر موقت ----------
+      - name: 14. انتقال فایل‌های سورس به مسیر امن
+        run: |
+          mkdir -p /tmp/artifact_src
+          cp -r encrypted_data/src/* /tmp/artifact_src/
+
+      # ---------- ۱۵. راه‌اندازی Node.js و نصب papaparse ----------
+      - name: 15. راه‌اندازی Node.js و نصب papaparse
         uses: actions/setup-node@v4
         with: { node-version: '18' }
       - run: npm install papaparse
 
-      - name: 15. لیست کردن استراتژی‌ها
+      # ---------- ۱۶. لیست کردن استراتژی‌ها ----------
+      - name: 16. لیست کردن استراتژی‌ها
         id: list_strategies
         run: |
           files=$(find strategies -maxdepth 1 -name "*.js" -exec basename {} \; | jq -R -s -c 'split("\n")[:-1]')
           echo "files=$files" >> $GITHUB_OUTPUT
 
-      - name: 16. ساختن چانک‌های پویا (هر چانک شامل ۵ فایل CSV)
+      # ---------- ۱۷. ساختن چانک‌های پویا (هر چانک شامل ۵ فایل CSV) ----------
+      - name: 17. ساختن چانک‌های پویا (هر چانک شامل ۵ فایل CSV)
         id: build_chunks
         run: |
           cnt=$(find data/All_Coins_Combined -maxdepth 1 -name "*.csv" | wc -l)
@@ -261,16 +269,21 @@ jobs:
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
 
-      - name: 17. بارگذاری محیط آماده شده (فایل‌ها کامل هستند)
+      # ---------- ۱۸. بارگذاری محیط آماده شده (فایل‌ها کامل هستند) ----------
+      - name: 18. بارگذاری محیط آماده شده
         uses: actions/upload-artifact@v4
         with:
           name: prep
           path: |
             data/
-            encrypted_data/src/
+            /tmp/artifact_src/
             strategies/
             node_modules/
             package.json
+
+      # ---------- ۱۹. پاکسازی مسیر موقت ----------
+      - name: 19. پاکسازی مسیر موقت
+        run: rm -rf /tmp/artifact_src
 
   backtest:
     needs: [check-completion, prepare]
@@ -297,6 +310,13 @@ jobs:
       - name: 3. راه‌اندازی Node.js
         uses: actions/setup-node@v4
         with: { node-version: '18' }
+
+      - name: بازیابی فایل‌ها از artifact به encrypted_data/src
+        run: |
+          mkdir -p encrypted_data/src
+          cp -r /tmp/artifact_src/* encrypted_data/src/ 2>/dev/null || echo "artifact structure differs"
+          # اطمینان از اینکه فایل‌ها مستقیماً در encrypted_data/src هستند
+          ls -l encrypted_data/src/
 
       - name: بررسی کامل بودن فایل‌های سورس
         run: |
