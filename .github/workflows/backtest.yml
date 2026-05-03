@@ -1,4 +1,4 @@
-### VERSION: FINAL (size=5, full logging, no compression) ###
+### VERSION: FINAL (size=5, log files committed, full original structure) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -65,7 +65,7 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  باز کردن قفل (unlock)
+      #  باز کردن قفل (unlock) – دقیقاً مطابق نسخهٔ اصلی شما
       # ------------------------------------------------------------
       - name: 🔓 مدیریت باز کردن قفل
         id: unlock
@@ -297,6 +297,11 @@ jobs:
         uses: actions/setup-node@v4
         with: { node-version: '18' }
 
+      - name: ساخت پوشه‌های ضروری
+        run: |
+          mkdir -p results
+          mkdir -p logs
+
       - name: 🩺 4. بررسی سلامت قبل از اجرا
         shell: bash
         run: |
@@ -314,7 +319,7 @@ jobs:
           done
           echo "✅ همه بررسی‌های سلامت با موفقیت گذشت."
 
-      - name: 5. اجرای بکتست برای یک فایل (یک چانک)
+      - name: 5. اجرای بکتست (با لاگ‌گیری کامل)
         continue-on-error: true
         run: |
           echo "===== شروع بکتست برای چانک ${{ matrix.chunk }} ====="
@@ -324,7 +329,7 @@ jobs:
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
             --data-dir data/All_Coins_Combined \
-            2>&1 | tee backtest-output-${{ matrix.chunk }}.log
+            2>&1 | tee logs/backtest-output-${{ matrix.chunk }}.log
           EXIT_CODE=$?
           echo "===== پایان بکتست (کد خروجی: $EXIT_CODE) ====="
           if [ $EXIT_CODE -ne 0 ]; then
@@ -351,7 +356,7 @@ jobs:
             find . -name "results.enc" 2>/dev/null || echo "   هیچ فایل results.enc یافت نشد"
           fi
 
-      - name: 7. ثبت نتایج در مخزن (برای هر چانک)
+      - name: 7. ثبت نتایج و لاگ‌ها در مخزن
         if: always()
         run: |
           if find results -name "results.enc" -print -quit | grep -q .; then
@@ -359,10 +364,13 @@ jobs:
             git config user.email "actions@github.com"
             git stash --include-untracked 2>/dev/null || true
             git add results/
+            git add logs/
             git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
             git pull --rebase
             git stash pop 2>/dev/null || true
             git push
+          else
+            echo "هیچ فایل results.enc برای commit یافت نشد."
           fi
 
   # ============================================================
