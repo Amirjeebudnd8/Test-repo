@@ -1,3 +1,4 @@
+### VERSION: FINAL (size=5, full logging, no compression) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -316,10 +317,21 @@ jobs:
       - name: 5. اجرای بکتست برای یک فایل (یک چانک)
         continue-on-error: true
         run: |
+          echo "===== شروع بکتست برای چانک ${{ matrix.chunk }} ====="
+          echo "استراتژی: ${{ matrix.strategy_file }}"
+          echo "================================================================"
           node encrypted_data/src/run-backtest.js \
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
-            --data-dir data/All_Coins_Combined
+            --data-dir data/All_Coins_Combined \
+            2>&1 | tee backtest-output-${{ matrix.chunk }}.log
+          EXIT_CODE=$?
+          echo "===== پایان بکتست (کد خروجی: $EXIT_CODE) ====="
+          if [ $EXIT_CODE -ne 0 ]; then
+            echo "❌ خطا در چانک ${{ matrix.chunk }}"
+          else
+            echo "✅ چانک ${{ matrix.chunk }} با موفقیت پایان یافت."
+          fi
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
 
