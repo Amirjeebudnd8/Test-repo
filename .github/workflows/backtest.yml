@@ -1,4 +1,4 @@
-### VERSION: FINAL (guaranteed results copy, no pathspec error, full yaml) ###
+### VERSION: FINAL (guaranteed no pathspec error - complete YAML) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -105,16 +105,16 @@ jobs:
             fi
 
             git config user.name "github-actions[bot]" && git config user.email "actions@github.com"
-            
+
             git add encrypted_data/src/*.js encrypted_data/src/.unlocked.flag 2>/dev/null || true
             git add "$UNLOCK_FILE" 2>/dev/null || true
-            
+
             if [ -f "$UNLOCK_FILE" ]; then
               rm -f "$UNLOCK_FILE"
               git rm --cached "$UNLOCK_FILE" 2>/dev/null || true
               git add "$UNLOCK_FILE" 2>/dev/null || true
             fi
-            
+
             git commit -m "unlock source files" || true
             git stash --include-untracked 2>/dev/null || true
             git pull --rebase
@@ -442,6 +442,7 @@ jobs:
         run: |
           if [ -d encrypted_data/src/results ]; then
             echo "📁 نتایج در encrypted_data/src/results پیدا شد. در حال کپی به results/ ..."
+            mkdir -p results
             cp -r encrypted_data/src/results/* results/ 2>/dev/null || true
             ls -la results/
           else
@@ -476,36 +477,33 @@ jobs:
             find . -name "results.enc" 2>/dev/null || echo "   هیچ فایل results.enc یافت نشد"
           fi
 
-      - name: 7. ثبت نتایج و لاگ‌ها در مخزن
+      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (تضمین‌شده بدون خطای pathspec)
         if: always()
         run: |
-          # ۱. پوشه results را حتماً در ریشه بساز (اگر وجود ندارد)
+          # ۱. ایجاد پوشه results در ریشه اگر وجود ندارد
           mkdir -p results
           
-          # ۲. محتویات احتمالی از مسیر جایگزین را کپی کن
+          # ۲. کپی نتایج از مسیر احتمالی دیگر (اگر وجود دارد)
           if [ -d encrypted_data/src/results ] && [ -n "$(ls -A encrypted_data/src/results 2>/dev/null)" ]; then
-            echo "📁 کپی نتایج از مسیر جایگزین..."
+            echo "📁 نتایج در مسیر جایگزین وجود دارد. کپی به results/ ریشه..."
             cp -r encrypted_data/src/results/* results/ 2>/dev/null || true
           fi
           
-          # ۳. حالا به دنبال فایل results.enc بگرد (در هر جایی)
-          ENC_FILE=$(find results -name "results.enc" -type f 2>/dev/null | head -1)
-          if [ -n "$ENC_FILE" ]; then
-            echo "✅ فایل results.enc پیدا شد: $ENC_FILE"
+          # ۳. فقط در صورتی که results/ واقعاً حاوی فایل باشد، عملیات git را انجام بده
+          if [ -n "$(ls -A results 2>/dev/null)" ]; then
+            echo "✅ فایل‌هایی در results/ وجود دارد. در حال commit..."
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
-            # stash کردن تغییرات مزاحم
             git stash --include-untracked 2>/dev/null || true
             git add results/
             git add logs/ 2>/dev/null || true
             git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
-            # pull و stash pop را در یک بلاک امن اجرا کن
-            git pull --rebase || echo "⚠️ pull ناموفق بود"
-            git stash pop 2>/dev/null || echo "ℹ️ stash خالی بود"
+            git pull --rebase || echo "⚠️ pull ناموفق بود - ادامه می‌دهیم"
+            git stash pop 2>/dev/null || true
             git push || echo "⚠️ push ناموفق بود"
           else
-            echo "هیچ فایل results.enc برای commit یافت نشد."
-            # stash pop را حتی در این حالت هم اجرا کن
+            echo "ℹ️ پوشه results/ خالی است. هیچ چیزی برای commit وجود ندارد."
+            # حتی در صورت خالی بودن results/، stash pop را انجام بده
             git stash pop 2>/dev/null || true
           fi
 
