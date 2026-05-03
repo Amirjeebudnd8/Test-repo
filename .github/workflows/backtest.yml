@@ -1,4 +1,4 @@
-### VERSION: FINAL (size=5, log files committed, full original structure) ###
+### VERSION: FINAL (size=5, full logging, no compression) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -65,7 +65,7 @@ jobs:
         run: mkdir -p encrypted_data/src
 
       # ------------------------------------------------------------
-      #  باز کردن قفل (unlock) – دقیقاً مطابق نسخهٔ اصلی شما
+      #  باز کردن قفل (unlock)
       # ------------------------------------------------------------
       - name: 🔓 مدیریت باز کردن قفل
         id: unlock
@@ -297,10 +297,11 @@ jobs:
         uses: actions/setup-node@v4
         with: { node-version: '18' }
 
-      - name: ساخت پوشه‌های ضروری
+      - name: ساختن پوشه‌های ضروری (results و logs)
         run: |
           mkdir -p results
           mkdir -p logs
+          echo "پوشه‌های results و logs ساخته شدند."
 
       - name: 🩺 4. بررسی سلامت قبل از اجرا
         shell: bash
@@ -319,6 +320,12 @@ jobs:
           done
           echo "✅ همه بررسی‌های سلامت با موفقیت گذشت."
 
+      - name: آماده‌سازی لاگ قبل از بک‌تست
+        run: |
+          echo "شروع لاگ برای چانک ${{ matrix.chunk }} در $(date)" > logs/backtest-output-${{ matrix.chunk }}.log
+          echo "مسیر کامل فایل لاگ: $(pwd)/logs/backtest-output-${{ matrix.chunk }}.log"
+          echo "دسترسی نوشتن: $([ -w logs ] && echo 'بله' || echo 'خیر')"
+
       - name: 5. اجرای بکتست (با لاگ‌گیری کامل)
         continue-on-error: true
         run: |
@@ -329,16 +336,28 @@ jobs:
             --strategy-file "strategies/${{ matrix.strategy_file }}" \
             --start-index ${{ matrix.chunk }} \
             --data-dir data/All_Coins_Combined \
-            2>&1 | tee logs/backtest-output-${{ matrix.chunk }}.log
+            2>&1 | tee -a logs/backtest-output-${{ matrix.chunk }}.log
           EXIT_CODE=$?
           echo "===== پایان بکتست (کد خروجی: $EXIT_CODE) ====="
           if [ $EXIT_CODE -ne 0 ]; then
-            echo "❌ خطا در چانک ${{ matrix.chunk }}"
+            echo "❌ خطا در چانک ${{ matrix.chunk }}" | tee -a logs/backtest-output-${{ matrix.chunk }}.log
           else
-            echo "✅ چانک ${{ matrix.chunk }} با موفقیت پایان یافت."
+            echo "✅ چانک ${{ matrix.chunk }} با موفقیت پایان یافت." | tee -a logs/backtest-output-${{ matrix.chunk }}.log
           fi
         env:
           RESULTS_PASSWORD: ${{ secrets.RESULTS_PASSWORD || secrets.DATA_PASSWORD }}
+
+      - name: نمایش فایل لاگ برای بررسی
+        if: always()
+        run: |
+          LOG_FILE="logs/backtest-output-${{ matrix.chunk }}.log"
+          if [ -f "$LOG_FILE" ]; then
+            echo "======= محتوای فایل لاگ ($LOG_FILE) ======="
+            cat "$LOG_FILE"
+            echo "======= پایان فایل لاگ ======="
+          else
+            echo "❌ فایل لاگ $LOG_FILE وجود ندارد. امکان ذخیره‌سازی لاگ وجود نداشته است."
+          fi
 
       - name: 🩺 6. بررسی پس از اجرا
         if: always()
