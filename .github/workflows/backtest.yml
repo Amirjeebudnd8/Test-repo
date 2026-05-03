@@ -1,4 +1,4 @@
-### VERSION: FINAL (artifact after source restore, no empty files) ###
+### VERSION: FINAL (با چک‌لیست کامل، هیچ فایل خالی در artifact نمی‌رود) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -234,6 +234,23 @@ jobs:
           node -e "const crypto=require('crypto'),fs=require('fs');const pass=process.env.CODE_PASSWORD;const data=fs.readFileSync('encrypted_data/src.enc');const key=crypto.scryptSync(pass,'salt',32);const iv=data.slice(0,16),enc=data.slice(16);const decipher=crypto.createDecipheriv('aes-256-cbc',key,iv);const dec=Buffer.concat([decipher.update(enc),decipher.final()]);fs.writeFileSync('src.tar.gz',dec);"
           tar -xzf src.tar.gz && rm src.tar.gz
 
+      # ---------- 🛡️ چک‌لیست ۱: اطمینان از کامل بودن فایل‌ها ----------
+      - name: بررسی کامل بودن فایل‌های سورس پس از بازیابی
+        run: |
+          echo "===== بررسی فایل‌های بازیابی‌شده ====="
+          for f in encrypted_data/src/backtest-core.js encrypted_data/src/divergence-detector.js encrypted_data/src/run-backtest.js; do
+            if [ ! -f "$f" ]; then
+              echo "❌ $f وجود ندارد!"
+              exit 1
+            fi
+            SIZE=$(stat -c%s "$f")
+            if [ "$SIZE" -eq 0 ]; then
+              echo "❌ $f خالی است (بازیابی ناموفق)!"
+              exit 1
+            fi
+            echo "✅ $f ($SIZE بایت)"
+          done
+
       # ---------- ۱۴. کپی فایل‌های کامل به مسیر موقت ----------
       - name: 14. انتقال فایل‌های سورس به مسیر امن
         run: |
@@ -268,6 +285,24 @@ jobs:
           done
           chunks+="]"
           echo "chunks=$chunks" >> $GITHUB_OUTPUT
+
+      # ---------- 🛡️ چک‌لیست ۲: تأیید کامل بودن فایل‌ها در مسیر موقت ----------
+      - name: تأیید کامل بودن فایل‌ها در مسیر موقت
+        run: |
+          echo "===== بررسی فایل‌های موجود در مسیر موقت ====="
+          ls -l /tmp/artifact_src/
+          for f in /tmp/artifact_src/backtest-core.js /tmp/artifact_src/divergence-detector.js /tmp/artifact_src/run-backtest.js; do
+            if [ ! -f "$f" ]; then
+              echo "❌ $f در مسیر موقت وجود ندارد!"
+              exit 1
+            fi
+            SIZE=$(stat -c%s "$f")
+            if [ "$SIZE" -eq 0 ]; then
+              echo "❌ $f در مسیر موقت خالی است!"
+              exit 1
+            fi
+            echo "✅ $f ($SIZE بایت) آمادهٔ آپلود"
+          done
 
       # ---------- ۱۸. بارگذاری محیط آماده شده (فایل‌ها کامل هستند) ----------
       - name: 18. بارگذاری محیط آماده شده
@@ -311,19 +346,32 @@ jobs:
         uses: actions/setup-node@v4
         with: { node-version: '18' }
 
+      # ---------- 🛡️ چک‌لیست ۳: بازیابی و تأیید فایل‌ها در job backtest ----------
       - name: بازیابی فایل‌ها از artifact به encrypted_data/src
         run: |
           mkdir -p encrypted_data/src
-          cp -r /tmp/artifact_src/* encrypted_data/src/ 2>/dev/null || echo "artifact structure differs"
-          # اطمینان از اینکه فایل‌ها مستقیماً در encrypted_data/src هستند
-          ls -l encrypted_data/src/
+          if [ -d /tmp/artifact_src ]; then
+            cp -r /tmp/artifact_src/* encrypted_data/src/
+          else
+            echo "⚠️ /tmp/artifact_src وجود ندارد. بررسی ساختار artifact..."
+            ls -la .
+            # تلاش برای یافتن فایل‌ها
+            find . -name "backtest-core.js" -type f 2>/dev/null | head -5
+          fi
 
       - name: بررسی کامل بودن فایل‌های سورس
         run: |
           echo "===== حجم فایل‌های JS ====="
-          ls -l encrypted_data/src/*.js
+          ls -l encrypted_data/src/*.js 2>/dev/null || echo "هیچ فایلی در encrypted_data/src یافت نشد"
           for f in encrypted_data/src/backtest-core.js encrypted_data/src/divergence-detector.js encrypted_data/src/run-backtest.js; do
-            if [ ! -s "$f" ]; then
+            if [ ! -f "$f" ]; then
+              echo "❌ $f وجود ندارد!"
+              # جستجوی فایل در کل workspace
+              find . -name "$(basename $f)" -type f 2>/dev/null
+              exit 1
+            fi
+            SIZE=$(stat -c%s "$f")
+            if [ "$SIZE" -eq 0 ]; then
               echo "❌ $f خالی است!"
               exit 1
             fi
