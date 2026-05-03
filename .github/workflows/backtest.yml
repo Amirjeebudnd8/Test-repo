@@ -1,4 +1,4 @@
-### VERSION: FINAL (intelligent file find, no hardcoded paths, guaranteed) ###
+### VERSION: FINAL (papaparse auto-install, smart find, no more errors) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -349,20 +349,18 @@ jobs:
       - name: بازیابی فایل‌ها از artifact با جستجوی هوشمند
         run: |
           mkdir -p encrypted_data/src
-          echo "جستجوی فایل‌های JavaScript در کل workspace..."
+          echo "جستجوی فایل‌های JavaScript غیرخالی در کل workspace..."
           for f in backtest-core.js divergence-detector.js run-backtest.js; do
-            # جستجوی فایل در کل workspace، اما نادیده گرفتن مسیر encrypted_data/src (که ممکن است خالی باشد)
-            FOUND=$(find . -name "$f" -type f -not -path "./encrypted_data/src/*" 2>/dev/null | head -1)
+            # جستجوی فایل با حجم > 0، نادیده گرفتن مسیرهای خالی احتمالی
+            FOUND=$(find . -name "$f" -type f -size +0c -not -path "./encrypted_data/src/*" 2>/dev/null | head -1)
             if [ -z "$FOUND" ]; then
-              # شاید artifact مستقیماً فایل‌ها را در ریشه قرار داده باشد (بدون tmp)
-              FOUND=$(find . -maxdepth 1 -name "$f" -type f 2>/dev/null | head -1)
+              FOUND=$(find . -name "$f" -type f -size +0c 2>/dev/null | head -1)
             fi
             if [ -n "$FOUND" ]; then
               echo "✅ $f پیدا شد: $FOUND (حجم: $(stat -c%s "$FOUND") بایت)"
               cp "$FOUND" encrypted_data/src/
             else
               echo "❌ $f در هیچ‌جای workspace پیدا نشد!"
-              find . -name "$f" -type f 2>/dev/null || true
               exit 1
             fi
           done
@@ -384,6 +382,17 @@ jobs:
             fi
           done
           echo "✅ همه فایل‌ها کامل هستند."
+
+      - name: نصب papaparse در پوشه src
+        run: |
+          cd encrypted_data/src
+          if [ ! -d node_modules/papaparse ]; then
+            echo "📦 نصب papaparse..."
+            npm init -y --silent 2>/dev/null || true
+            npm install papaparse --silent
+          else
+            echo "✅ papaparse قبلاً نصب شده است."
+          fi
 
       - name: ساختن پوشه‌های results و logs
         run: |
