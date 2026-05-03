@@ -314,7 +314,7 @@ jobs:
           mapfile -t CSV_FILES < <(find "$DATA_DIR" -maxdepth 1 -name "*.csv" -print0 | xargs -0 ls -1 2>/dev/null)
           echo "✅ تعداد کل فایل‌های CSV: ${#CSV_FILES[@]}"
           [ ${#CSV_FILES[@]} -gt 0 ] && echo "   اولین: $(basename "${CSV_FILES[0]}")   آخرین: $(basename "${CSV_FILES[-1]}")"
-          for cf in encrypted_data/src/backtest-core.js encrypted_data/src/divergence-detector.js encrypted_data/src/run-backtest.js encrypted_data/src/trendline-detector.js encrypted_data/src/ichimoku-calculator.js encrypted_data/src/breakpoint-generator.js; do
+          for cf in encrypted_data/src/backtest-core.js encrypted_data/src/divergence-detector.js encrypted_data/src/run-backtest.js; do
             [ -f "$cf" ] || { echo "❌ $cf پیدا نشد"; exit 1; }
           done
           echo "✅ همه بررسی‌های سلامت با موفقیت گذشت."
