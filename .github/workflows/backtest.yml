@@ -1,4 +1,4 @@
-### VERSION: FINAL (fix stash-before-add, results will be committed) ###
+### VERSION: FINAL (blank line indentation fixed) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -480,35 +480,21 @@ jobs:
       - name: 7. ثبت نتایج و لاگ‌ها در مخزن (ترتیب اصلاح‌شده: اول add سپس stash)
         if: always()
         run: |
-          # ۱. پوشه results را همیشه در ریشه داشته باش
           mkdir -p results
-
-          # ۲. نتایج تولید شده را از مسیر جایگزین کپی کن
           if [ -d encrypted_data/src/results ] && [ -n "$(ls -A encrypted_data/src/results 2>/dev/null)" ]; then
             echo "📁 کپی نتایج از encrypted_data/src/results ..."
             cp -r encrypted_data/src/results/* results/ 2>/dev/null || true
           fi
-
-          # ۳. اگر results خالی نیست، ابتدا add سپس stash کن
           if [ -n "$(ls -A results 2>/dev/null)" ]; then
             echo "✅ results حاوی فایل است. ابتدا stage سپس stash..."
-
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
-
-            # ---------- گام ۱: stage کردن نتایج ----------
             git add -A results/
             git add logs/ 2>/dev/null || true
-
-            # ---------- گام ۲: stash کردن فایل‌های مزاحم ----------
             git stash --include-untracked 2>/dev/null || true
-
-            # ---------- گام ۳: commit و push ----------
             git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
             git pull --rebase || echo "⚠️ pull ناموفق بود"
             git push || echo "⚠️ push ناموفق بود"
-
-            # ---------- گام ۴: بازگرداندن stash ----------
             git stash pop 2>/dev/null || true
           else
             echo "ℹ️ پوشه results خالی است. هیچ کاری انجام نمی‌شود."
