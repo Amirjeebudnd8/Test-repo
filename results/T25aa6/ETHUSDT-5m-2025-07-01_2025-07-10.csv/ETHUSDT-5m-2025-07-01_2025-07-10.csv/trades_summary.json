@@ -1,0 +1,148 @@
+{
+  "fileInfo": {
+    "name": "ETHUSDT-5m-2025-07-01_2025-07-10.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T15:32:08.290Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-02T04:50:00.000Z",
+      "exitTime": "2025-07-02T07:10:00.000Z",
+      "profitPercent": 0.34979999999999833
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-03T05:05:00.000Z",
+      "exitTime": "2025-07-03T05:40:00.000Z",
+      "profitPercent": 0.34980000000000233
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-03T06:45:00.000Z",
+      "exitTime": "2025-07-03T09:00:00.000Z",
+      "profitPercent": -0.549750000000002
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-03T20:00:00.000Z",
+      "exitTime": "2025-07-03T21:05:00.000Z",
+      "profitPercent": 0.3498000000000042
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-03T22:05:00.000Z",
+      "exitTime": "2025-07-03T23:20:00.000Z",
+      "profitPercent": -0.54975
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-04T21:45:00.000Z",
+      "exitTime": "2025-07-04T22:10:00.000Z",
+      "profitPercent": 0.26196207945124633
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-04T22:05:00.000Z",
+      "exitTime": "2025-07-04T23:10:00.000Z",
+      "profitPercent": 0.3497999999999951
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-05T00:40:00.000Z",
+      "exitTime": "2025-07-05T02:30:00.000Z",
+      "profitPercent": -0.5497499999999994
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-05T04:25:00.000Z",
+      "exitTime": "2025-07-05T08:45:00.000Z",
+      "profitPercent": -0.549749999999992
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-05T10:45:00.000Z",
+      "exitTime": "2025-07-05T15:45:00.000Z",
+      "profitPercent": -0.5497500000000008
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-06T02:10:00.000Z",
+      "exitTime": "2025-07-06T09:50:00.000Z",
+      "profitPercent": -0.5497499999999924
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-06T12:35:00.000Z",
+      "exitTime": "2025-07-06T13:40:00.000Z",
+      "profitPercent": 0.6496499999999926
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-06T13:25:00.000Z",
+      "exitTime": "2025-07-06T13:55:00.000Z",
+      "profitPercent": 0.8495499999999842
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-06T21:35:00.000Z",
+      "exitTime": "2025-07-06T21:45:00.000Z",
+      "profitPercent": -0.549749999999999
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-06T20:05:00.000Z",
+      "exitTime": "2025-07-06T21:45:00.000Z",
+      "profitPercent": 1.4492499999999913
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-07T08:35:00.000Z",
+      "exitTime": "2025-07-07T09:45:00.000Z",
+      "profitPercent": -0.54975
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-07T23:30:00.000Z",
+      "exitTime": "2025-07-08T01:30:00.000Z",
+      "profitPercent": -0.5497499999999922
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-08T04:30:00.000Z",
+      "exitTime": "2025-07-08T06:20:00.000Z",
+      "profitPercent": 0.34457301844559374
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-08T06:00:00.000Z",
+      "exitTime": "2025-07-08T10:35:00.000Z",
+      "profitPercent": 0.26322046405656485
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-09T05:35:00.000Z",
+      "exitTime": "2025-07-09T05:45:00.000Z",
+      "profitPercent": -0.5497500000000057
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-09T11:05:00.000Z",
+      "exitTime": "2025-07-09T12:20:00.000Z",
+      "profitPercent": 1.0494499999999902
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-10T05:50:00.000Z",
+      "exitTime": "2025-07-10T06:35:00.000Z",
+      "profitPercent": 0.34450461435353325
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2025-07-10T16:20:00.000Z",
+      "exitTime": "2025-07-10T16:30:00.000Z",
+      "profitPercent": 0.3413743373813319
+    }
+  ]
+}
