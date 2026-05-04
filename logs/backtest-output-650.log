@@ -1,9 +1,9 @@
 ✅ نسخه نهایی – بدون مقادیر پیش‌فرض
-[2026-05-04T15:00:50.371Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/T25aa6.js, startIndex=650, dataDir=data/All_Coins_Combined
-[2026-05-04T15:00:50.372Z] [INFO] استراتژی T25aa6 با طول 4959 کاراکتر خوانده شد.
+[2026-05-04T15:11:20.294Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/T25aa6.js, startIndex=650, dataDir=data/All_Coins_Combined
+[2026-05-04T15:11:20.295Z] [INFO] استراتژی T25aa6 با طول 4959 کاراکتر خوانده شد.
 [DIVERGENCE] 📦 ماژول در module.exports (Node.js) بارگذاری شد. (پشتیبانی از RSI و MACD)
-[2026-05-04T15:00:50.374Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
-[2026-05-04T15:00:50.375Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
+[2026-05-04T15:11:20.298Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
+[2026-05-04T15:11:20.298Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
 {
   "trendLines": {
     "pivotPeriod": 3,
@@ -21,6 +21,6 @@
     "senkouBPeriod": 57
   }
 }
-[2026-05-04T15:00:50.375Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
-[2026-05-04T15:00:50.386Z] [INFO] فایل انتخاب‌شده: BTCUSDT-5m-2023-04-01_2023-04-10.csv
-[2026-05-04T15:00:50.386Z] [INFO] ⏩ فایل BTCUSDT-5m-2023-04-01_2023-04-10.csv قبلاً انجام شده است.
+[2026-05-04T15:11:20.298Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
+[2026-05-04T15:11:20.309Z] [INFO] فایل انتخاب‌شده: BTCUSDT-5m-2023-04-01_2023-04-10.csv
+[2026-05-04T15:11:20.309Z] [INFO] ⏩ فایل BTCUSDT-5m-2023-04-01_2023-04-10.csv قبلاً انجام شده است.
