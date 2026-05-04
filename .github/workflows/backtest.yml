@@ -1,4 +1,3 @@
-### VERSION: FINAL (blank line indentation fixed) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -345,7 +344,6 @@ jobs:
         uses: actions/setup-node@v4
         with: { node-version: '18' }
 
-      # ---------- 🛡️ چک‌لیست ۳: جستجوی هوشمند فایل‌ها و کپی آنها ----------
       - name: بازیابی فایل‌ها از artifact با جستجوی هوشمند
         run: |
           mkdir -p encrypted_data/src
@@ -501,9 +499,6 @@ jobs:
             git stash pop 2>/dev/null || true
           fi
 
-  # ============================================================
-  # رمزنگاری یکپارچه کل پوشه results (یک فایل results.enc در ریشه)
-  # ============================================================
   finalize-encryption:
     needs: [backtest]
     if: always()
@@ -565,10 +560,7 @@ jobs:
         run: |
           echo "پوشه results یافت نشد. مرحله رمزنگاری انجام نشد."
 
-      # ------------------------------------------------------------
-      # فراخوانی ردفلو فرعی (چرخه) در پایان کار
-      # ------------------------------------------------------------
-      - name: فراخوانی ردفلو چرخه
+      - name: فراخوانی ردفلو فرعی (چرخه)
         if: always()
         run: |
           gh workflow run loop.yml --ref ${{ github.ref_name }}
