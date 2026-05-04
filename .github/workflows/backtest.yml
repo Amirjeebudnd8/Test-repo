@@ -1,4 +1,4 @@
-### VERSION: FINAL (blank line indentation fixed) ###
+### VERSION: FINAL (all indentations checked, no syntax errors) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -477,7 +477,7 @@ jobs:
             find . -name "results.enc" 2>/dev/null || echo "   هیچ فایل results.enc یافت نشد"
           fi
 
-      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (ترتیب اصلاح‌شده: اول add سپس stash)
+      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (بدون stash، فقط نتایج)
         if: always()
         run: |
           mkdir -p results
@@ -486,7 +486,7 @@ jobs:
             cp -r encrypted_data/src/results/* results/ 2>/dev/null || true
           fi
           if [ -n "$(ls -A results 2>/dev/null)" ]; then
-            echo "✅ results حاوی فایل است. ابتدا stage سپس stash..."
+            echo "✅ results حاوی فایل است. در حال commit..."
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add -A results/
@@ -494,8 +494,8 @@ jobs:
             git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
             git pull --rebase || echo "⚠️ pull ناموفق بود"
             git push || echo "⚠️ push ناموفق بود"
+          else
             echo "ℹ️ پوشه results خالی است. هیچ کاری انجام نمی‌شود."
-            git stash pop 2>/dev/null || true
           fi
 
   # ============================================================
