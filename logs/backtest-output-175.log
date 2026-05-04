@@ -1,9 +1,9 @@
 ✅ نسخه نهایی – بدون مقادیر پیش‌فرض
-[2026-05-04T14:59:35.175Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/T25aa6.js, startIndex=175, dataDir=data/All_Coins_Combined
-[2026-05-04T14:59:35.176Z] [INFO] استراتژی T25aa6 با طول 4959 کاراکتر خوانده شد.
+[2026-05-04T15:08:30.325Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/T25aa6.js, startIndex=175, dataDir=data/All_Coins_Combined
+[2026-05-04T15:08:30.326Z] [INFO] استراتژی T25aa6 با طول 4959 کاراکتر خوانده شد.
 [DIVERGENCE] 📦 ماژول در module.exports (Node.js) بارگذاری شد. (پشتیبانی از RSI و MACD)
-[2026-05-04T14:59:35.179Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
-[2026-05-04T14:59:35.179Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
+[2026-05-04T15:08:30.328Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
+[2026-05-04T15:08:30.329Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
 {
   "trendLines": {
     "pivotPeriod": 3,
@@ -21,6 +21,6 @@
     "senkouBPeriod": 57
   }
 }
-[2026-05-04T14:59:35.179Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
-[2026-05-04T14:59:35.190Z] [INFO] فایل انتخاب‌شده: ETHUSDT-5m-2019-09-21_2019-09-30.csv
-[2026-05-04T14:59:35.190Z] [INFO] ⏩ فایل ETHUSDT-5m-2019-09-21_2019-09-30.csv قبلاً انجام شده است.
+[2026-05-04T15:08:30.329Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
+[2026-05-04T15:08:30.340Z] [INFO] فایل انتخاب‌شده: ETHUSDT-5m-2019-09-21_2019-09-30.csv
+[2026-05-04T15:08:30.341Z] [INFO] ⏩ فایل ETHUSDT-5m-2019-09-21_2019-09-30.csv قبلاً انجام شده است.
