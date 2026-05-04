@@ -1,0 +1,76 @@
+{
+  "fileInfo": {
+    "name": "SOLUSDT-5m-2023-04-21_2023-04-30.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T14:44:31.381Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-22T02:35:00.000Z",
+      "exitTime": "2023-04-22T04:35:00.000Z",
+      "profitPercent": 0.2711608013120952
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-23T12:20:00.000Z",
+      "exitTime": "2023-04-23T13:10:00.000Z",
+      "profitPercent": -0.5497499999999975
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-25T06:20:00.000Z",
+      "exitTime": "2023-04-25T06:50:00.000Z",
+      "profitPercent": -0.5497499999999954
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-25T11:35:00.000Z",
+      "exitTime": "2023-04-25T12:20:00.000Z",
+      "profitPercent": -0.5497500000000087
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-25T12:55:00.000Z",
+      "exitTime": "2023-04-25T13:25:00.000Z",
+      "profitPercent": 0.27777510709185765
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-25T17:40:00.000Z",
+      "exitTime": "2023-04-25T18:00:00.000Z",
+      "profitPercent": 0.2755473721590904
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-27T14:15:00.000Z",
+      "exitTime": "2023-04-27T15:25:00.000Z",
+      "profitPercent": 1.9490000000000027
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-27T18:15:00.000Z",
+      "exitTime": "2023-04-27T18:45:00.000Z",
+      "profitPercent": 0.3498000000000079
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-28T00:50:00.000Z",
+      "exitTime": "2023-04-28T01:10:00.000Z",
+      "profitPercent": 0.2501615093499595
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-29T09:20:00.000Z",
+      "exitTime": "2023-04-29T10:00:00.000Z",
+      "profitPercent": -0.5497499999999996
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-04-30T10:05:00.000Z",
+      "exitTime": "2023-04-30T10:40:00.000Z",
+      "profitPercent": -0.549749999999999
+    }
+  ]
+}

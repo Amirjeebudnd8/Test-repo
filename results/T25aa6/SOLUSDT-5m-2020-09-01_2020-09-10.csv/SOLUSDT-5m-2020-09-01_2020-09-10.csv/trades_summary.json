@@ -1,0 +1,76 @@
+{
+  "fileInfo": {
+    "name": "SOLUSDT-5m-2020-09-01_2020-09-10.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T14:40:09.207Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-02T15:15:00.000Z",
+      "exitTime": "2020-09-02T15:25:00.000Z",
+      "profitPercent": 0.3498000000000093
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-02T19:05:00.000Z",
+      "exitTime": "2020-09-02T19:30:00.000Z",
+      "profitPercent": 1.0412107458292494
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-03T05:20:00.000Z",
+      "exitTime": "2020-09-03T05:45:00.000Z",
+      "profitPercent": -0.5497500000000004
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-03T07:40:00.000Z",
+      "exitTime": "2020-09-03T07:45:00.000Z",
+      "profitPercent": -0.5497499999999953
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-03T07:50:00.000Z",
+      "exitTime": "2020-09-03T08:00:00.000Z",
+      "profitPercent": 0.6496499999999912
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-03T16:45:00.000Z",
+      "exitTime": "2020-09-03T16:50:00.000Z",
+      "profitPercent": -0.5497500000000012
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-05T03:05:00.000Z",
+      "exitTime": "2020-09-05T03:15:00.000Z",
+      "profitPercent": -0.5497499999999973
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-06T21:10:00.000Z",
+      "exitTime": "2020-09-06T21:25:00.000Z",
+      "profitPercent": 1.6115940113031697
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-09T01:55:00.000Z",
+      "exitTime": "2020-09-09T02:05:00.000Z",
+      "profitPercent": -0.5497499999999943
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-09T04:40:00.000Z",
+      "exitTime": "2020-09-09T04:45:00.000Z",
+      "profitPercent": -0.5497499999999987
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-09-09T07:40:00.000Z",
+      "exitTime": "2020-09-09T08:10:00.000Z",
+      "profitPercent": 2.7486000000000086
+    }
+  ]
+}

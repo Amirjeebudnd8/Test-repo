@@ -1,0 +1,142 @@
+{
+  "fileInfo": {
+    "name": "BTCUSDT-5m-2019-03-21_2019-03-31.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T14:51:21.978Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-21T03:20:00.000Z",
+      "exitTime": "2019-03-21T13:25:00.000Z",
+      "profitPercent": -0.5497499999999965
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-21T18:40:00.000Z",
+      "exitTime": "2019-03-21T21:30:00.000Z",
+      "profitPercent": 0.30162681972788713
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-21T22:10:00.000Z",
+      "exitTime": "2019-03-22T07:35:00.000Z",
+      "profitPercent": -0.5497499999999977
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-22T10:25:00.000Z",
+      "exitTime": "2019-03-23T04:00:00.000Z",
+      "profitPercent": 0.2504512030075224
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-23T03:50:00.000Z",
+      "exitTime": "2019-03-23T10:25:00.000Z",
+      "profitPercent": -0.549750000000005
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-23T15:50:00.000Z",
+      "exitTime": "2019-03-24T02:35:00.000Z",
+      "profitPercent": -0.5497500000000034
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-24T09:05:00.000Z",
+      "exitTime": "2019-03-24T20:25:00.000Z",
+      "profitPercent": -0.5497500000000052
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-24T21:35:00.000Z",
+      "exitTime": "2019-03-25T15:50:00.000Z",
+      "profitPercent": -0.5497499999999967
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-26T00:10:00.000Z",
+      "exitTime": "2019-03-26T06:45:00.000Z",
+      "profitPercent": -0.5497500000000037
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-26T08:35:00.000Z",
+      "exitTime": "2019-03-26T11:40:00.000Z",
+      "profitPercent": -0.5497499999999983
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-26T14:40:00.000Z",
+      "exitTime": "2019-03-27T00:00:00.000Z",
+      "profitPercent": 0.281290916224306
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-27T00:50:00.000Z",
+      "exitTime": "2019-03-27T01:20:00.000Z",
+      "profitPercent": 0.2896525186915805
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-27T01:20:00.000Z",
+      "exitTime": "2019-03-27T01:40:00.000Z",
+      "profitPercent": 0.32684088967077035
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-27T01:35:00.000Z",
+      "exitTime": "2019-03-27T12:00:00.000Z",
+      "profitPercent": 0.6496499999999855
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-27T18:20:00.000Z",
+      "exitTime": "2019-03-27T23:50:00.000Z",
+      "profitPercent": 0.3498000000000039
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-28T03:10:00.000Z",
+      "exitTime": "2019-03-28T03:35:00.000Z",
+      "profitPercent": -0.549750000000001
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-28T13:05:00.000Z",
+      "exitTime": "2019-03-29T00:50:00.000Z",
+      "profitPercent": 0.3399477690344206
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-29T18:25:00.000Z",
+      "exitTime": "2019-03-30T00:30:00.000Z",
+      "profitPercent": 0.3498000000000031
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-30T05:55:00.000Z",
+      "exitTime": "2019-03-30T10:45:00.000Z",
+      "profitPercent": -0.5497499999999957
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-30T18:15:00.000Z",
+      "exitTime": "2019-03-30T23:40:00.000Z",
+      "profitPercent": 0.32284683924992197
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-31T08:55:00.000Z",
+      "exitTime": "2019-03-31T11:55:00.000Z",
+      "profitPercent": 0.28136139493511075
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2019-03-31T19:30:00.000Z",
+      "exitTime": "2019-03-31T23:55:00.000Z",
+      "profitPercent": -0.03531933550932475
+    }
+  ]
+}

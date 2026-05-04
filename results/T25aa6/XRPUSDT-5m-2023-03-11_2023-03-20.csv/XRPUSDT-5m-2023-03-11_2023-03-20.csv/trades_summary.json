@@ -1,0 +1,94 @@
+{
+  "fileInfo": {
+    "name": "XRPUSDT-5m-2023-03-11_2023-03-20.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T14:43:32.362Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-11T15:35:00.000Z",
+      "exitTime": "2023-03-11T17:00:00.000Z",
+      "profitPercent": -0.5497500000000048
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-11T19:25:00.000Z",
+      "exitTime": "2023-03-11T20:35:00.000Z",
+      "profitPercent": 0.34980000000000455
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-11T20:30:00.000Z",
+      "exitTime": "2023-03-11T21:15:00.000Z",
+      "profitPercent": -0.5497500000000007
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-11T23:35:00.000Z",
+      "exitTime": "2023-03-12T01:05:00.000Z",
+      "profitPercent": 0.31728117258463395
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-12T17:25:00.000Z",
+      "exitTime": "2023-03-12T17:55:00.000Z",
+      "profitPercent": 0.3498000000000026
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-12T17:45:00.000Z",
+      "exitTime": "2023-03-12T18:30:00.000Z",
+      "profitPercent": 0.34980000000000805
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-12T18:25:00.000Z",
+      "exitTime": "2023-03-12T18:45:00.000Z",
+      "profitPercent": 0.294445215577187
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-12T18:40:00.000Z",
+      "exitTime": "2023-03-12T19:15:00.000Z",
+      "profitPercent": -0.5497500000000043
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-12T22:15:00.000Z",
+      "exitTime": "2023-03-12T22:25:00.000Z",
+      "profitPercent": 0.6496499999999886
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-12T22:20:00.000Z",
+      "exitTime": "2023-03-12T22:35:00.000Z",
+      "profitPercent": -0.54975
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-13T22:05:00.000Z",
+      "exitTime": "2023-03-13T23:15:00.000Z",
+      "profitPercent": -0.5497499999999944
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-16T10:45:00.000Z",
+      "exitTime": "2023-03-16T11:05:00.000Z",
+      "profitPercent": -0.549749999999994
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-18T10:00:00.000Z",
+      "exitTime": "2023-03-18T10:35:00.000Z",
+      "profitPercent": 0.3478592233009684
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-03-19T01:30:00.000Z",
+      "exitTime": "2023-03-19T06:05:00.000Z",
+      "profitPercent": 1.9489999999999976
+    }
+  ]
+}

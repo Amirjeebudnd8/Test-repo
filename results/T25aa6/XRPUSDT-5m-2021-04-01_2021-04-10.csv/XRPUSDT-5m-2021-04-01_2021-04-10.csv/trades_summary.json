@@ -1,0 +1,58 @@
+{
+  "fileInfo": {
+    "name": "XRPUSDT-5m-2021-04-01_2021-04-10.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T14:52:00.000Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2021-04-02T15:40:00.000Z",
+      "exitTime": "2021-04-02T15:55:00.000Z",
+      "profitPercent": -0.5497499999999983
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2021-04-04T21:45:00.000Z",
+      "exitTime": "2021-04-04T22:00:00.000Z",
+      "profitPercent": -0.5497500000000077
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2021-04-07T23:15:00.000Z",
+      "exitTime": "2021-04-07T23:25:00.000Z",
+      "profitPercent": 0.34980000000000044
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2021-04-08T01:40:00.000Z",
+      "exitTime": "2021-04-08T01:55:00.000Z",
+      "profitPercent": -0.549750000000003
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2021-04-08T07:45:00.000Z",
+      "exitTime": "2021-04-08T07:50:00.000Z",
+      "profitPercent": -0.5497499999999955
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2021-04-08T16:55:00.000Z",
+      "exitTime": "2021-04-08T17:00:00.000Z",
+      "profitPercent": -0.5497500000000022
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2021-04-09T04:55:00.000Z",
+      "exitTime": "2021-04-09T05:05:00.000Z",
+      "profitPercent": -0.5497499999999996
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2021-04-09T05:20:00.000Z",
+      "exitTime": "2021-04-09T05:30:00.000Z",
+      "profitPercent": -0.5497500000000065
+    }
+  ]
+}

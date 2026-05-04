@@ -1,0 +1,154 @@
+{
+  "fileInfo": {
+    "name": "BTCUSDT-5m-2020-10-01_2020-10-10.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T14:40:43.902Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-01T04:05:00.000Z",
+      "exitTime": "2020-10-01T09:50:00.000Z",
+      "profitPercent": 0.6496499999999843
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-02T03:25:00.000Z",
+      "exitTime": "2020-10-02T05:00:00.000Z",
+      "profitPercent": -0.5497499999999974
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-02T12:15:00.000Z",
+      "exitTime": "2020-10-02T13:20:00.000Z",
+      "profitPercent": -0.5497500000000037
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-02T13:40:00.000Z",
+      "exitTime": "2020-10-02T21:45:00.000Z",
+      "profitPercent": -0.5497499999999933
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-03T08:20:00.000Z",
+      "exitTime": "2020-10-03T16:55:00.000Z",
+      "profitPercent": 0.26047999704023084
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-03T19:25:00.000Z",
+      "exitTime": "2020-10-03T22:05:00.000Z",
+      "profitPercent": -0.5497499999999949
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-04T02:50:00.000Z",
+      "exitTime": "2020-10-04T08:40:00.000Z",
+      "profitPercent": 0.3498000000000088
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-04T08:20:00.000Z",
+      "exitTime": "2020-10-04T19:05:00.000Z",
+      "profitPercent": 0.3498000000000011
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-04T19:00:00.000Z",
+      "exitTime": "2020-10-05T00:25:00.000Z",
+      "profitPercent": 0.33529344472032124
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-05T00:05:00.000Z",
+      "exitTime": "2020-10-05T04:00:00.000Z",
+      "profitPercent": -0.5497499999999973
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-05T07:35:00.000Z",
+      "exitTime": "2020-10-05T13:45:00.000Z",
+      "profitPercent": 0.3022695988571108
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-05T20:25:00.000Z",
+      "exitTime": "2020-10-06T10:55:00.000Z",
+      "profitPercent": -0.5497500000000031
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-06T23:50:00.000Z",
+      "exitTime": "2020-10-07T01:35:00.000Z",
+      "profitPercent": -0.5497500000000051
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-07T02:55:00.000Z",
+      "exitTime": "2020-10-07T15:25:00.000Z",
+      "profitPercent": 0.3303493492629059
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-07T15:20:00.000Z",
+      "exitTime": "2020-10-08T07:10:00.000Z",
+      "profitPercent": -0.5497500000000043
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-08T14:30:00.000Z",
+      "exitTime": "2020-10-08T15:30:00.000Z",
+      "profitPercent": 0.8495499999999949
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-08T10:20:00.000Z",
+      "exitTime": "2020-10-08T17:25:00.000Z",
+      "profitPercent": 2.7485999999999966
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-08T17:20:00.000Z",
+      "exitTime": "2020-10-08T17:50:00.000Z",
+      "profitPercent": -0.5497499999999932
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-08T22:10:00.000Z",
+      "exitTime": "2020-10-09T06:00:00.000Z",
+      "profitPercent": -0.5497500000000012
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-09T07:10:00.000Z",
+      "exitTime": "2020-10-09T11:35:00.000Z",
+      "profitPercent": 1.4492499999999984
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-10T02:05:00.000Z",
+      "exitTime": "2020-10-10T02:25:00.000Z",
+      "profitPercent": 0.2687966840422267
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-09T22:50:00.000Z",
+      "exitTime": "2020-10-10T02:50:00.000Z",
+      "profitPercent": 2.7486000000000046
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-10T08:25:00.000Z",
+      "exitTime": "2020-10-10T09:45:00.000Z",
+      "profitPercent": -0.5497500000000037
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2020-10-10T13:40:00.000Z",
+      "exitTime": "2020-10-10T23:10:00.000Z",
+      "profitPercent": -0.5497499999999931
+    }
+  ]
+}

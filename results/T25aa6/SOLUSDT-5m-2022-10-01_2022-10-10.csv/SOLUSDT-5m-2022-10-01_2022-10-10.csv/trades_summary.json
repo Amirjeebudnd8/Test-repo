@@ -1,0 +1,58 @@
+{
+  "fileInfo": {
+    "name": "SOLUSDT-5m-2022-10-01_2022-10-10.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T14:42:50.145Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2022-10-01T08:30:00.000Z",
+      "exitTime": "2022-10-01T11:25:00.000Z",
+      "profitPercent": -0.5497499999999995
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-10-03T01:45:00.000Z",
+      "exitTime": "2022-10-03T02:55:00.000Z",
+      "profitPercent": -0.5497500000000022
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-10-03T10:30:00.000Z",
+      "exitTime": "2022-10-03T12:05:00.000Z",
+      "profitPercent": 0.28203414709518454
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-10-07T20:25:00.000Z",
+      "exitTime": "2022-10-07T22:45:00.000Z",
+      "profitPercent": 0.33446503941783096
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-10-09T00:00:00.000Z",
+      "exitTime": "2022-10-09T07:10:00.000Z",
+      "profitPercent": 0.34026196686098964
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-10-10T00:40:00.000Z",
+      "exitTime": "2022-10-10T01:10:00.000Z",
+      "profitPercent": 0.6496499999999862
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-10-10T00:45:00.000Z",
+      "exitTime": "2022-10-10T03:30:00.000Z",
+      "profitPercent": -0.5497500000000004
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-10-10T19:15:00.000Z",
+      "exitTime": "2022-10-10T21:10:00.000Z",
+      "profitPercent": -0.5497500000000065
+    }
+  ]
+}

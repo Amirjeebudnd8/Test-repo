@@ -1,0 +1,124 @@
+{
+  "fileInfo": {
+    "name": "BTCUSDT-5m-2022-02-21_2022-02-28.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T14:41:57.691Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-21T15:05:00.000Z",
+      "exitTime": "2022-02-21T15:20:00.000Z",
+      "profitPercent": -0.5497499999999966
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-21T20:40:00.000Z",
+      "exitTime": "2022-02-21T20:55:00.000Z",
+      "profitPercent": -0.5497500000000036
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-22T05:45:00.000Z",
+      "exitTime": "2022-02-22T05:50:00.000Z",
+      "profitPercent": -0.5497499999999987
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-22T08:50:00.000Z",
+      "exitTime": "2022-02-22T09:35:00.000Z",
+      "profitPercent": 0.2640517533653992
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-22T09:30:00.000Z",
+      "exitTime": "2022-02-22T10:00:00.000Z",
+      "profitPercent": -0.549749999999994
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-22T10:10:00.000Z",
+      "exitTime": "2022-02-22T10:30:00.000Z",
+      "profitPercent": 0.3497999999999937
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-22T13:55:00.000Z",
+      "exitTime": "2022-02-22T14:10:00.000Z",
+      "profitPercent": -0.5497500000000088
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-23T07:35:00.000Z",
+      "exitTime": "2022-02-23T08:30:00.000Z",
+      "profitPercent": 1.2493499999999882
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-24T15:20:00.000Z",
+      "exitTime": "2022-02-24T15:25:00.000Z",
+      "profitPercent": -0.5497499999999984
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-24T18:50:00.000Z",
+      "exitTime": "2022-02-24T18:55:00.000Z",
+      "profitPercent": -0.5497499999999967
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-25T03:40:00.000Z",
+      "exitTime": "2022-02-25T05:05:00.000Z",
+      "profitPercent": -0.5497499999999936
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-25T23:30:00.000Z",
+      "exitTime": "2022-02-25T23:40:00.000Z",
+      "profitPercent": -0.5497500000000046
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-26T00:35:00.000Z",
+      "exitTime": "2022-02-26T01:40:00.000Z",
+      "profitPercent": -0.5497499999999985
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-26T21:10:00.000Z",
+      "exitTime": "2022-02-26T22:15:00.000Z",
+      "profitPercent": -0.5497499999999975
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-27T06:25:00.000Z",
+      "exitTime": "2022-02-27T07:25:00.000Z",
+      "profitPercent": 0.27605440611075804
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-27T08:30:00.000Z",
+      "exitTime": "2022-02-27T08:40:00.000Z",
+      "profitPercent": -0.5497500000000074
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-27T10:25:00.000Z",
+      "exitTime": "2022-02-27T10:45:00.000Z",
+      "profitPercent": 0.32430961274276443
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-28T01:30:00.000Z",
+      "exitTime": "2022-02-28T01:55:00.000Z",
+      "profitPercent": -0.5497500000000091
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2022-02-28T08:05:00.000Z",
+      "exitTime": "2022-02-28T08:15:00.000Z",
+      "profitPercent": -0.5497500000000091
+    }
+  ]
+}
