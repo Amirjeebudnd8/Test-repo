@@ -1,0 +1,130 @@
+{
+  "fileInfo": {
+    "name": "XRPUSDT-5m-2023-08-11_2023-08-20.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T15:30:46.979Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-11T04:10:00.000Z",
+      "exitTime": "2023-08-11T04:35:00.000Z",
+      "profitPercent": 0.3498000000000076
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-11T21:30:00.000Z",
+      "exitTime": "2023-08-12T03:30:00.000Z",
+      "profitPercent": -0.5497499999999977
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-12T06:40:00.000Z",
+      "exitTime": "2023-08-12T19:25:00.000Z",
+      "profitPercent": -0.5497500000000004
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-13T18:25:00.000Z",
+      "exitTime": "2023-08-13T18:45:00.000Z",
+      "profitPercent": 0.2603062104930441
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-12T21:35:00.000Z",
+      "exitTime": "2023-08-13T19:55:00.000Z",
+      "profitPercent": 1.2493499999999944
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-14T14:05:00.000Z",
+      "exitTime": "2023-08-14T15:55:00.000Z",
+      "profitPercent": 0.2781146792632405
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-14T20:05:00.000Z",
+      "exitTime": "2023-08-14T22:25:00.000Z",
+      "profitPercent": 0.26245687847498367
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-15T09:15:00.000Z",
+      "exitTime": "2023-08-15T14:05:00.000Z",
+      "profitPercent": -0.5497499999999945
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-15T23:05:00.000Z",
+      "exitTime": "2023-08-16T01:40:00.000Z",
+      "profitPercent": -0.5497499999999967
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-16T04:10:00.000Z",
+      "exitTime": "2023-08-16T04:30:00.000Z",
+      "profitPercent": 0.6496499999999853
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-16T15:00:00.000Z",
+      "exitTime": "2023-08-16T15:50:00.000Z",
+      "profitPercent": -0.5497499999999977
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-16T17:25:00.000Z",
+      "exitTime": "2023-08-16T18:00:00.000Z",
+      "profitPercent": 0.33427265050167193
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-16T17:55:00.000Z",
+      "exitTime": "2023-08-16T19:05:00.000Z",
+      "profitPercent": -0.5497499999999943
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-19T09:55:00.000Z",
+      "exitTime": "2023-08-19T11:15:00.000Z",
+      "profitPercent": -0.5497499999999959
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-19T15:05:00.000Z",
+      "exitTime": "2023-08-19T15:10:00.000Z",
+      "profitPercent": -0.54974999999999
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-19T13:25:00.000Z",
+      "exitTime": "2023-08-19T15:10:00.000Z",
+      "profitPercent": 1.649149999999997
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-20T02:30:00.000Z",
+      "exitTime": "2023-08-20T02:50:00.000Z",
+      "profitPercent": -0.549750000000001
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-20T05:25:00.000Z",
+      "exitTime": "2023-08-20T05:45:00.000Z",
+      "profitPercent": -0.5497500000000057
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-20T10:00:00.000Z",
+      "exitTime": "2023-08-20T10:10:00.000Z",
+      "profitPercent": 0.31078297342192784
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-20T18:05:00.000Z",
+      "exitTime": "2023-08-20T20:15:00.000Z",
+      "profitPercent": 0.34980000000001005
+    }
+  ]
+}

@@ -1,0 +1,136 @@
+{
+  "fileInfo": {
+    "name": "ETHUSDT-5m-2023-09-11_2023-09-20.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T15:28:51.322Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-11T02:25:00.000Z",
+      "exitTime": "2023-09-11T09:20:00.000Z",
+      "profitPercent": -0.5497499999999962
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-11T13:30:00.000Z",
+      "exitTime": "2023-09-11T13:45:00.000Z",
+      "profitPercent": -0.5497499999999937
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-11T23:05:00.000Z",
+      "exitTime": "2023-09-12T01:00:00.000Z",
+      "profitPercent": 0.34979999999999656
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-12T03:15:00.000Z",
+      "exitTime": "2023-09-12T03:30:00.000Z",
+      "profitPercent": 0.6496499999999877
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-12T03:00:00.000Z",
+      "exitTime": "2023-09-12T03:30:00.000Z",
+      "profitPercent": 1.4492499999999835
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-12T09:35:00.000Z",
+      "exitTime": "2023-09-12T10:00:00.000Z",
+      "profitPercent": 0.31273371821780926
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-13T07:35:00.000Z",
+      "exitTime": "2023-09-13T07:40:00.000Z",
+      "profitPercent": -0.5497500000000008
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-13T11:20:00.000Z",
+      "exitTime": "2023-09-13T12:30:00.000Z",
+      "profitPercent": -0.5497500000000054
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-14T00:30:00.000Z",
+      "exitTime": "2023-09-14T01:05:00.000Z",
+      "profitPercent": 1.0494499999999871
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-13T21:30:00.000Z",
+      "exitTime": "2023-09-14T01:05:00.000Z",
+      "profitPercent": 1.449249999999991
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-14T07:40:00.000Z",
+      "exitTime": "2023-09-14T14:30:00.000Z",
+      "profitPercent": 0.3165872489675274
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-15T16:30:00.000Z",
+      "exitTime": "2023-09-15T21:25:00.000Z",
+      "profitPercent": 0.34980000000000044
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-15T21:10:00.000Z",
+      "exitTime": "2023-09-15T23:15:00.000Z",
+      "profitPercent": 0.6496499999999921
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-16T09:35:00.000Z",
+      "exitTime": "2023-09-17T00:10:00.000Z",
+      "profitPercent": -0.549749999999994
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-17T04:50:00.000Z",
+      "exitTime": "2023-09-17T17:50:00.000Z",
+      "profitPercent": -0.549750000000007
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-17T19:10:00.000Z",
+      "exitTime": "2023-09-17T20:55:00.000Z",
+      "profitPercent": -0.5497500000000034
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-18T02:20:00.000Z",
+      "exitTime": "2023-09-18T05:40:00.000Z",
+      "profitPercent": 0.34980000000000355
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-18T09:35:00.000Z",
+      "exitTime": "2023-09-18T10:55:00.000Z",
+      "profitPercent": 0.6496499999999834
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-19T02:15:00.000Z",
+      "exitTime": "2023-09-19T09:00:00.000Z",
+      "profitPercent": 0.3457352232710454
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-20T01:40:00.000Z",
+      "exitTime": "2023-09-20T03:20:00.000Z",
+      "profitPercent": -0.5497500000000033
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-09-20T17:15:00.000Z",
+      "exitTime": "2023-09-20T19:15:00.000Z",
+      "profitPercent": -0.5497499999999989
+    }
+  ]
+}

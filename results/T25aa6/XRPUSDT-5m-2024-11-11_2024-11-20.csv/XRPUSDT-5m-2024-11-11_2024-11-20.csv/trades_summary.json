@@ -1,0 +1,76 @@
+{
+  "fileInfo": {
+    "name": "XRPUSDT-5m-2024-11-11_2024-11-20.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T15:31:29.748Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-11T09:45:00.000Z",
+      "exitTime": "2024-11-11T10:25:00.000Z",
+      "profitPercent": 0.3498000000000034
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-11T17:35:00.000Z",
+      "exitTime": "2024-11-11T18:00:00.000Z",
+      "profitPercent": -0.5497500000000074
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-14T21:25:00.000Z",
+      "exitTime": "2024-11-14T21:35:00.000Z",
+      "profitPercent": 2.2488499999999965
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-16T04:35:00.000Z",
+      "exitTime": "2024-11-16T04:50:00.000Z",
+      "profitPercent": 1.4492499999999902
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-16T08:30:00.000Z",
+      "exitTime": "2024-11-16T08:45:00.000Z",
+      "profitPercent": 1.0494499999999853
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-18T00:00:00.000Z",
+      "exitTime": "2024-11-18T00:15:00.000Z",
+      "profitPercent": 0.6496499999999996
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-18T01:35:00.000Z",
+      "exitTime": "2024-11-18T01:45:00.000Z",
+      "profitPercent": 1.2493499999999962
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-19T19:40:00.000Z",
+      "exitTime": "2024-11-19T19:45:00.000Z",
+      "profitPercent": -0.5497499999999949
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-20T00:50:00.000Z",
+      "exitTime": "2024-11-20T01:15:00.000Z",
+      "profitPercent": -0.5497499999999937
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-20T09:15:00.000Z",
+      "exitTime": "2024-11-20T09:25:00.000Z",
+      "profitPercent": -0.5497499999999912
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2024-11-20T21:05:00.000Z",
+      "exitTime": "2024-11-20T21:20:00.000Z",
+      "profitPercent": -0.5497500000000097
+    }
+  ]
+}
