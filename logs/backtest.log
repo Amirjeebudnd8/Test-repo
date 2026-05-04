@@ -1,0 +1,37 @@
+[2026-05-04T10:56:00.815Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/T25aa6.js, startIndex=220, dataDir=data/All_Coins_Combined
+[2026-05-04T10:56:00.815Z] [INFO] استراتژی T25aa6 با طول 4959 کاراکتر خوانده شد.
+[2026-05-04T10:56:00.818Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
+[2026-05-04T10:56:00.818Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
+{
+  "trendLines": {
+    "pivotPeriod": 3,
+    "minTouchPoints": 3,
+    "minCandleDistance": 3,
+    "maxDeviation": 0.001
+  },
+  "ichimoku": {
+    "enabled": true,
+    "useCloudFilter": true,
+    "useTKCross": true,
+    "useChikou": true,
+    "tenkanPeriod": 14,
+    "kijunPeriod": 30,
+    "senkouBPeriod": 57
+  }
+}
+[2026-05-04T10:56:00.818Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
+[2026-05-04T10:56:00.829Z] [INFO] فایل انتخاب‌شده: ETHUSDT-5m-2020-02-21_2020-02-29.csv
+[2026-05-04T10:56:00.847Z] [INFO] فایل ETHUSDT-5m-2020-02-21_2020-02-29.csv با 2592 کندل بارگذاری شد.
+[2026-05-04T10:56:00.847Z] [INFO] شروع فاز تحلیل و بک‌تست...
+[2026-05-04T10:56:00.847Z] [INFO] 🟡 در حال تشخیص خطوط روند...
+[2026-05-04T10:56:02.411Z] [INFO] ✅ 160 خط روند یافت شد.
+[2026-05-04T10:56:02.411Z] [INFO] 🟡 در حال تشخیص واگرایی (RSI و MACD)...
+[2026-05-04T10:56:02.454Z] [INFO] ✅ 41 سیگنال واگرایی یافت شد.
+[2026-05-04T10:56:02.458Z] [INFO] 346 روند شارپ تشخیص داده شد.
+[2026-05-04T10:56:02.458Z] [INFO] تنظیمات ایچیموکو: {"enabled":true,"useCloudFilter":true,"useTKCross":true,"useChikou":true,"tenkanPeriod":14,"kijunPeriod":30,"senkouBPeriod":57}
+[2026-05-04T10:56:02.458Z] [INFO] 🚀 فراخوانی runBacktest...
+[2026-05-04T10:56:11.437Z] [INFO] بک‌تست پایان یافت. تعداد معاملات: 15
+[2026-05-04T10:56:11.437Z] [INFO] سرمایه نهایی: 7880.76
+[2026-05-04T10:56:11.439Z] [INFO] گزارش detailed_results.json ذخیره شد.
+[2026-05-04T10:56:11.439Z] [INFO] گزارش trades_summary.json ذخیره شد.
+[2026-05-04T10:56:11.491Z] [INFO] ✅ results.enc ذخیره شد.
