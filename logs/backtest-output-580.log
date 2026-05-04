@@ -1,9 +1,9 @@
 ✅ نسخه نهایی – بدون مقادیر پیش‌فرض
-[2026-05-04T15:00:10.972Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/T25aa6.js, startIndex=580, dataDir=data/All_Coins_Combined
-[2026-05-04T15:00:10.972Z] [INFO] استراتژی T25aa6 با طول 4959 کاراکتر خوانده شد.
+[2026-05-04T15:10:14.041Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/T25aa6.js, startIndex=580, dataDir=data/All_Coins_Combined
+[2026-05-04T15:10:14.042Z] [INFO] استراتژی T25aa6 با طول 4959 کاراکتر خوانده شد.
 [DIVERGENCE] 📦 ماژول در module.exports (Node.js) بارگذاری شد. (پشتیبانی از RSI و MACD)
-[2026-05-04T15:00:10.975Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
-[2026-05-04T15:00:10.975Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
+[2026-05-04T15:10:14.044Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
+[2026-05-04T15:10:14.045Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
 {
   "trendLines": {
     "pivotPeriod": 3,
@@ -21,6 +21,6 @@
     "senkouBPeriod": 57
   }
 }
-[2026-05-04T15:00:10.976Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
-[2026-05-04T15:00:10.986Z] [INFO] فایل انتخاب‌شده: SOLUSDT-5m-2022-10-01_2022-10-10.csv
-[2026-05-04T15:00:10.986Z] [INFO] ⏩ فایل SOLUSDT-5m-2022-10-01_2022-10-10.csv قبلاً انجام شده است.
+[2026-05-04T15:10:14.045Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
+[2026-05-04T15:10:14.055Z] [INFO] فایل انتخاب‌شده: SOLUSDT-5m-2022-10-01_2022-10-10.csv
+[2026-05-04T15:10:14.055Z] [INFO] ⏩ فایل SOLUSDT-5m-2022-10-01_2022-10-10.csv قبلاً انجام شده است.
