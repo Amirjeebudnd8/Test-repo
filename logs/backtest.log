@@ -35,3 +35,40 @@
 [2026-05-04T10:56:11.439Z] [INFO] گزارش detailed_results.json ذخیره شد.
 [2026-05-04T10:56:11.439Z] [INFO] گزارش trades_summary.json ذخیره شد.
 [2026-05-04T10:56:11.491Z] [INFO] ✅ results.enc ذخیره شد.
+[2026-05-04T11:05:30.162Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/T25aa6.js, startIndex=10, dataDir=data/All_Coins_Combined
+[2026-05-04T11:05:30.162Z] [INFO] استراتژی T25aa6 با طول 4959 کاراکتر خوانده شد.
+[2026-05-04T11:05:30.165Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
+[2026-05-04T11:05:30.166Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
+{
+  "trendLines": {
+    "pivotPeriod": 3,
+    "minTouchPoints": 3,
+    "minCandleDistance": 3,
+    "maxDeviation": 0.001
+  },
+  "ichimoku": {
+    "enabled": true,
+    "useCloudFilter": true,
+    "useTKCross": true,
+    "useChikou": true,
+    "tenkanPeriod": 14,
+    "kijunPeriod": 30,
+    "senkouBPeriod": 57
+  }
+}
+[2026-05-04T11:05:30.166Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
+[2026-05-04T11:05:30.177Z] [INFO] فایل انتخاب‌شده: BTCUSDT-5m-2018-02-21_2018-02-28.csv
+[2026-05-04T11:05:30.195Z] [INFO] فایل BTCUSDT-5m-2018-02-21_2018-02-28.csv با 2304 کندل بارگذاری شد.
+[2026-05-04T11:05:30.195Z] [INFO] شروع فاز تحلیل و بک‌تست...
+[2026-05-04T11:05:30.195Z] [INFO] 🟡 در حال تشخیص خطوط روند...
+[2026-05-04T11:05:31.515Z] [INFO] ✅ 103 خط روند یافت شد.
+[2026-05-04T11:05:31.515Z] [INFO] 🟡 در حال تشخیص واگرایی (RSI و MACD)...
+[2026-05-04T11:05:31.553Z] [INFO] ✅ 35 سیگنال واگرایی یافت شد.
+[2026-05-04T11:05:31.557Z] [INFO] 348 روند شارپ تشخیص داده شد.
+[2026-05-04T11:05:31.557Z] [INFO] تنظیمات ایچیموکو: {"enabled":true,"useCloudFilter":true,"useTKCross":true,"useChikou":true,"tenkanPeriod":14,"kijunPeriod":30,"senkouBPeriod":57}
+[2026-05-04T11:05:31.557Z] [INFO] 🚀 فراخوانی runBacktest...
+[2026-05-04T11:05:36.293Z] [INFO] بک‌تست پایان یافت. تعداد معاملات: 18
+[2026-05-04T11:05:36.294Z] [INFO] سرمایه نهایی: 8155.70
+[2026-05-04T11:05:36.295Z] [INFO] گزارش detailed_results.json ذخیره شد.
+[2026-05-04T11:05:36.295Z] [INFO] گزارش trades_summary.json ذخیره شد.
+[2026-05-04T11:05:36.348Z] [INFO] ✅ results.enc ذخیره شد.
