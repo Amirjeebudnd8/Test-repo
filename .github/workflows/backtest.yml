@@ -1,4 +1,4 @@
-### VERSION: FINAL (all indentations checked, no syntax errors) ###
+### VERSION: FINAL (all fixes applied, no compression) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -491,9 +491,13 @@ jobs:
             git config user.email "actions@github.com"
             git add -A results/
             git add logs/ 2>/dev/null || true
+            # فقط فایل‌های تغییرکرده در src را به‌طور موقت پنهان کن (نه results)
+            git stash push -- encrypted_data/src/ 2>/dev/null || true
             git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
             git pull --rebase || echo "⚠️ pull ناموفق بود"
             git push || echo "⚠️ push ناموفق بود"
+            # بازگرداندن فایل‌های پنهان
+            git stash pop 2>/dev/null || true
           else
             echo "ℹ️ پوشه results خالی است. هیچ کاری انجام نمی‌شود."
           fi
