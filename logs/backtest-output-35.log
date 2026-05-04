@@ -1,9 +1,9 @@
 ✅ نسخه نهایی – بدون مقادیر پیش‌فرض
-[2026-05-04T14:58:44.245Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/T25aa6.js, startIndex=35, dataDir=data/All_Coins_Combined
-[2026-05-04T14:58:44.246Z] [INFO] استراتژی T25aa6 با طول 4959 کاراکتر خوانده شد.
+[2026-05-04T15:07:40.689Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/T25aa6.js, startIndex=35, dataDir=data/All_Coins_Combined
+[2026-05-04T15:07:40.690Z] [INFO] استراتژی T25aa6 با طول 4959 کاراکتر خوانده شد.
 [DIVERGENCE] 📦 ماژول در module.exports (Node.js) بارگذاری شد. (پشتیبانی از RSI و MACD)
-[2026-05-04T14:58:44.248Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
-[2026-05-04T14:58:44.249Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
+[2026-05-04T15:07:40.692Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
+[2026-05-04T15:07:40.693Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
 {
   "trendLines": {
     "pivotPeriod": 3,
@@ -21,6 +21,6 @@
     "senkouBPeriod": 57
   }
 }
-[2026-05-04T14:58:44.249Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
-[2026-05-04T14:58:44.259Z] [INFO] فایل انتخاب‌شده: XRPUSDT-5m-2018-06-01_2018-06-10.csv
-[2026-05-04T14:58:44.259Z] [INFO] ⏩ فایل XRPUSDT-5m-2018-06-01_2018-06-10.csv قبلاً انجام شده است.
+[2026-05-04T15:07:40.693Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
+[2026-05-04T15:07:40.704Z] [INFO] فایل انتخاب‌شده: XRPUSDT-5m-2018-06-01_2018-06-10.csv
+[2026-05-04T15:07:40.704Z] [INFO] ⏩ فایل XRPUSDT-5m-2018-06-01_2018-06-10.csv قبلاً انجام شده است.
