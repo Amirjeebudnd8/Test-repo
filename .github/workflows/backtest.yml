@@ -1,4 +1,4 @@
-### VERSION: FINAL (no conflict on logs/backtest.log, only per-chunk log committed) ###
+### VERSION: FINAL (guaranteed no unstaged changes error, clean + reset) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -477,7 +477,7 @@ jobs:
             find . -name "results.enc" 2>/dev/null || echo "   هیچ فایل results.enc یافت نشد"
           fi
 
-      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (بدون conflict روی backtest.log)
+      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (تضمین بدون خطا با reset و clean)
         if: always()
         run: |
           mkdir -p results
@@ -490,15 +490,13 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add -A results/
-            # فقط لاگ مخصوص این چانک را اضافه کن، نه کل پوشه logs
             git add logs/backtest-output-${{ matrix.chunk }}.log 2>/dev/null || true
-            # فقط فایل‌های تغییرکرده در src را به‌طور موقت پنهان کن (نه results)
-            git stash push -- encrypted_data/src/ 2>/dev/null || true
             git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
-            git pull --rebase || echo "⚠️ pull ناموفق بود"
-            git push || echo "⚠️ push ناموفق بود"
-            # بازگرداندن فایل‌های پنهان
-            git stash pop 2>/dev/null || true
+            # حذف کامل تغییرات محلی برای جلوگیری از unstaged changes
+            git reset --hard HEAD
+            git clean -fd
+            git pull --rebase
+            git push
           else
             echo "ℹ️ پوشه results خالی است. هیچ کاری انجام نمی‌شود."
           fi
