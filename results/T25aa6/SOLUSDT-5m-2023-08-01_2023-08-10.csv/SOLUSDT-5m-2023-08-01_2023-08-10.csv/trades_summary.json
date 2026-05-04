@@ -1,0 +1,64 @@
+{
+  "fileInfo": {
+    "name": "SOLUSDT-5m-2023-08-01_2023-08-10.csv",
+    "symbol": "BTCUSDT",
+    "timeframe": "5m",
+    "processedAt": "2026-05-04T15:01:18.282Z"
+  },
+  "trades": [
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-01T13:50:00.000Z",
+      "exitTime": "2023-08-01T14:10:00.000Z",
+      "profitPercent": -0.5497499999999947
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-03T13:50:00.000Z",
+      "exitTime": "2023-08-03T15:05:00.000Z",
+      "profitPercent": 0.6496499999999894
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-04T12:20:00.000Z",
+      "exitTime": "2023-08-04T12:55:00.000Z",
+      "profitPercent": 0.3498000000000011
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-05T03:55:00.000Z",
+      "exitTime": "2023-08-05T04:40:00.000Z",
+      "profitPercent": -0.5497499999999992
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-05T06:40:00.000Z",
+      "exitTime": "2023-08-05T08:00:00.000Z",
+      "profitPercent": -0.5497500000000013
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-05T10:40:00.000Z",
+      "exitTime": "2023-08-05T12:10:00.000Z",
+      "profitPercent": -0.5497500000000002
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-09T00:25:00.000Z",
+      "exitTime": "2023-08-09T01:40:00.000Z",
+      "profitPercent": 0.30093282019703843
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-10T07:05:00.000Z",
+      "exitTime": "2023-08-10T10:05:00.000Z",
+      "profitPercent": 0.3498000000000056
+    },
+    {
+      "type": "BUY",
+      "entryTime": "2023-08-10T19:40:00.000Z",
+      "exitTime": "2023-08-10T21:50:00.000Z",
+      "profitPercent": 0.3498000000000044
+    }
+  ]
+}
