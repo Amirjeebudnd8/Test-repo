@@ -1,4 +1,4 @@
-### VERSION: FINAL (all fixes applied, no compression) ###
+### VERSION: FINAL (no conflict on logs/backtest.log, only per-chunk log committed) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -477,7 +477,7 @@ jobs:
             find . -name "results.enc" 2>/dev/null || echo "   هیچ فایل results.enc یافت نشد"
           fi
 
-      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (بدون stash، فقط نتایج)
+      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (بدون conflict روی backtest.log)
         if: always()
         run: |
           mkdir -p results
@@ -490,7 +490,8 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "actions@github.com"
             git add -A results/
-            git add logs/ 2>/dev/null || true
+            # فقط لاگ مخصوص این چانک را اضافه کن، نه کل پوشه logs
+            git add logs/backtest-output-${{ matrix.chunk }}.log 2>/dev/null || true
             # فقط فایل‌های تغییرکرده در src را به‌طور موقت پنهان کن (نه results)
             git stash push -- encrypted_data/src/ 2>/dev/null || true
             git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
