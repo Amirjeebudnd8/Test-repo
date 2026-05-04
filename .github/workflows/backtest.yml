@@ -1,4 +1,4 @@
-### VERSION: FINAL (guaranteed no unstaged changes error, clean + reset) ###
+### VERSION: FINAL (guaranteed push with retry + random sleep) ###
 name: Complete 24/7 Pipeline
 
 permissions:
@@ -477,7 +477,7 @@ jobs:
             find . -name "results.enc" 2>/dev/null || echo "   هیچ فایل results.enc یافت نشد"
           fi
 
-      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (تضمین بدون خطا با reset و clean)
+      - name: 7. ثبت نتایج و لاگ‌ها در مخزن (push تضمینی با تلاش مجدد)
         if: always()
         run: |
           mkdir -p results
@@ -492,11 +492,27 @@ jobs:
             git add -A results/
             git add logs/backtest-output-${{ matrix.chunk }}.log 2>/dev/null || true
             git commit -m "بکتست چانک ${{ matrix.chunk }} برای ${{ matrix.strategy_file }}" || true
-            # حذف کامل تغییرات محلی برای جلوگیری از unstaged changes
+            # حذف تغییرات محلی برای جلوگیری از unstaged changes
             git reset --hard HEAD
             git clean -fd
-            git pull --rebase
-            git push
+            # تلاش برای push تا ۱۰ بار با خواب تصادفی
+            RETRY=0
+            MAX_RETRY=10
+            while [ $RETRY -lt $MAX_RETRY ]; do
+              if git pull --rebase && git push; then
+                echo "✅ push موفق بود"
+                break
+              else
+                RETRY=$((RETRY + 1))
+                SLEEP=$(( (RANDOM % 15) + 1 ))
+                echo "⚠️ push ناموفق (تلاش $RETRY). صبر $SLEEP ثانیه..."
+                sleep $SLEEP
+              fi
+            done
+            if [ $RETRY -ge $MAX_RETRY ]; then
+              echo "❌ push بعد از $MAX_RETRY تلاش ناموفق ماند"
+              exit 1
+            fi
           else
             echo "ℹ️ پوشه results خالی است. هیچ کاری انجام نمی‌شود."
           fi
