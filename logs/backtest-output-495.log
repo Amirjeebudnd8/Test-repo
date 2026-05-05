@@ -1,9 +1,9 @@
 ✅ نسخه نهایی – بدون مقادیر پیش‌فرض
-[2026-05-05T00:45:31.966Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/sgrffy.js, startIndex=495, dataDir=data/All_Coins_Combined
-[2026-05-05T00:45:31.967Z] [INFO] استراتژی sgrffy با طول 4937 کاراکتر خوانده شد.
+[2026-05-05T01:19:22.790Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/sgrffy.js, startIndex=495, dataDir=data/All_Coins_Combined
+[2026-05-05T01:19:22.791Z] [INFO] استراتژی sgrffy با طول 4937 کاراکتر خوانده شد.
 [DIVERGENCE] 📦 ماژول در module.exports (Node.js) بارگذاری شد. (پشتیبانی از RSI و MACD)
-[2026-05-05T00:45:31.969Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
-[2026-05-05T00:45:31.970Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
+[2026-05-05T01:19:22.794Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
+[2026-05-05T01:19:22.794Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
 {
   "trendLines": {
     "pivotPeriod": 5,
@@ -21,6 +21,6 @@
     "senkouBPeriod": 57
   }
 }
-[2026-05-05T00:45:31.970Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
-[2026-05-05T00:45:31.981Z] [INFO] فایل انتخاب‌شده: ETHUSDT-5m-2022-03-01_2022-03-10.csv
-[2026-05-05T00:45:31.981Z] [INFO] ⏩ فایل ETHUSDT-5m-2022-03-01_2022-03-10.csv قبلاً انجام شده است.
+[2026-05-05T01:19:22.794Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
+[2026-05-05T01:19:22.805Z] [INFO] فایل انتخاب‌شده: ETHUSDT-5m-2022-03-01_2022-03-10.csv
+[2026-05-05T01:19:22.805Z] [INFO] ⏩ فایل ETHUSDT-5m-2022-03-01_2022-03-10.csv قبلاً انجام شده است.
