@@ -1,9 +1,9 @@
 ✅ نسخه نهایی – بدون مقادیر پیش‌فرض
-[2026-05-05T00:50:12.163Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/sgrffy.js, startIndex=1060, dataDir=data/All_Coins_Combined
-[2026-05-05T00:50:12.164Z] [INFO] استراتژی sgrffy با طول 4937 کاراکتر خوانده شد.
+[2026-05-05T01:24:16.093Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/sgrffy.js, startIndex=1060, dataDir=data/All_Coins_Combined
+[2026-05-05T01:24:16.094Z] [INFO] استراتژی sgrffy با طول 4937 کاراکتر خوانده شد.
 [DIVERGENCE] 📦 ماژول در module.exports (Node.js) بارگذاری شد. (پشتیبانی از RSI و MACD)
-[2026-05-05T00:50:12.166Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
-[2026-05-05T00:50:12.167Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
+[2026-05-05T01:24:16.097Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
+[2026-05-05T01:24:16.097Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
 {
   "trendLines": {
     "pivotPeriod": 5,
@@ -21,6 +21,6 @@
     "senkouBPeriod": 57
   }
 }
-[2026-05-05T00:50:12.167Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
-[2026-05-05T00:50:12.178Z] [INFO] فایل انتخاب‌شده: SOLUSDT-5m-2026-02-01_2026-02-10.csv
-[2026-05-05T00:50:12.178Z] [INFO] ⏩ فایل SOLUSDT-5m-2026-02-01_2026-02-10.csv قبلاً انجام شده است.
+[2026-05-05T01:24:16.098Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
+[2026-05-05T01:24:16.108Z] [INFO] فایل انتخاب‌شده: SOLUSDT-5m-2026-02-01_2026-02-10.csv
+[2026-05-05T01:24:16.109Z] [INFO] ⏩ فایل SOLUSDT-5m-2026-02-01_2026-02-10.csv قبلاً انجام شده است.
