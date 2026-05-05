@@ -1,9 +1,9 @@
 ✅ نسخه نهایی – بدون مقادیر پیش‌فرض
-[2026-05-05T02:15:03.699Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/sgrffy.js, startIndex=325, dataDir=data/All_Coins_Combined
-[2026-05-05T02:15:03.699Z] [INFO] استراتژی sgrffy با طول 4937 کاراکتر خوانده شد.
+[2026-05-05T02:32:35.410Z] [INFO] شروع run-backtest.js با آرگومان‌ها: strategyFile=strategies/sgrffy.js, startIndex=325, dataDir=data/All_Coins_Combined
+[2026-05-05T02:32:35.410Z] [INFO] استراتژی sgrffy با طول 4937 کاراکتر خوانده شد.
 [DIVERGENCE] 📦 ماژول در module.exports (Node.js) بارگذاری شد. (پشتیبانی از RSI و MACD)
-[2026-05-05T02:15:03.702Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
-[2026-05-05T02:15:03.702Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
+[2026-05-05T02:32:35.413Z] [INFO] در حال استخراج ANALYSIS_CONFIG از استراتژی...
+[2026-05-05T02:32:35.414Z] [INFO] ✅ ANALYSIS_CONFIG با موفقیت بارگذاری شد:
 {
   "trendLines": {
     "pivotPeriod": 5,
@@ -21,6 +21,6 @@
     "senkouBPeriod": 57
   }
 }
-[2026-05-05T02:15:03.703Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
-[2026-05-05T02:15:03.713Z] [INFO] فایل انتخاب‌شده: XRPUSDT-5m-2020-12-21_2020-12-31.csv
-[2026-05-05T02:15:03.713Z] [INFO] ⏩ فایل XRPUSDT-5m-2020-12-21_2020-12-31.csv قبلاً انجام شده است.
+[2026-05-05T02:32:35.414Z] [INFO] نیازمندی‌ها: trendLines=true, ichimoku=true
+[2026-05-05T02:32:35.425Z] [INFO] فایل انتخاب‌شده: XRPUSDT-5m-2020-12-21_2020-12-31.csv
+[2026-05-05T02:32:35.425Z] [INFO] ⏩ فایل XRPUSDT-5m-2020-12-21_2020-12-31.csv قبلاً انجام شده است.
